@@ -1,4 +1,16 @@
+const express = require('express');
+const cors = require('cors'); // 1. Importe o CORS
+const app = express();
+
+// 2. Configure o CORS para aceitar pedidos de QUALQUER lugar (para teste)
+app.use(cors()); 
+
+app.use(express.json());
+
+// ... suas rotas (login, musicas, etc) abaixo ...
+
 require('dotenv').config();
+
 
 const express = require('express');
 const cors = require('cors');
@@ -9,7 +21,7 @@ const path = require('path');
 const fs = require('fs');
 const { Pool } = require('pg');
 
-const app = express();
+
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET;
 
