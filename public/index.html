@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mazzoni Music</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <link rel="stylesheet" href="estilos.css">
+    
     <script src="script.js" defer></script>
 </head>
-<body class="bg-[#121212] text-white">
+<body>
 
-    <header>
+     <header>
         <div class="header-content">
             <div class="logo" id="site-title">MAZZONI MUSIC</div>
             <nav>
@@ -39,141 +43,188 @@
                 <div class="gradient-orb orb-3"></div>
             </div>
             <div class="hero-content">
-                <div class="hero-badge">
+                <div class="hero-badge" style="margin-bottom: 15px; display: inline-block; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; font-size: 0.9rem;">
                     <span class="badge-icon">🎵</span> <span class="badge-text">Streaming de Alta Qualidade</span>
                 </div>
-                <h1 class="hero-title">MAZZONI MUSIC</h1>
-                <p class="hero-subtitle">O som que move a sua vibe.</p>
+                <h1 class="hero-title" id="brand-name">MAZZONI MUSIC</h1>
+                <p class="hero-subtitle" id="slogan-text">O som que move a sua vibe.</p>
                 <div class="hero-stats">
-                    <div class="stat-item"><div class="stat-number" id="total-songs">0</div><div class="stat-label">Músicas</div></div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="total-songs">0</div>
+                        <div class="stat-label">Músicas</div>
+                    </div>
                     <div class="stat-divider"></div>
-                    <div class="stat-item"><div class="stat-number" id="total-artists">0</div><div class="stat-label">Artistas</div></div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="total-artists">0</div>
+                        <div class="stat-label">Artistas</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="stat-number">∞</div>
+                        <div class="stat-label">Vibes</div>
+                    </div>
                 </div>
                 <div class="hero-actions">
                     <button class="hero-btn primary" onclick="navigateTo('musicas')"> <i class="fas fa-play-circle"></i> Explorar </button>
                     <button class="hero-btn secondary" onclick="playRandomMusic()"> <i class="fas fa-random"></i> Surpreenda-me </button>
                 </div>
             </div>
+            <div class="floating-cards">
+                <div class="floating-card card-1"><i class="fas fa-music"></i></div>
+                <div class="floating-card card-2"><i class="fas fa-headphones"></i></div>
+                <div class="floating-card card-3"><i class="fas fa-compact-disc"></i></div>
+            </div>
         </div>
         <div class="container">
             <div class="section-header">
-                <h2 class="section-title-new">🔥 Destaques da Semana</h2>
+                <div>
+                    <h2 class="section-title-new" id="destaques-title">🔥 Destaques da Semana</h2>
+                    <p class="section-subtitle">As músicas mais tocadas agora</p>
+                </div>
                 <button class="btn-view-all" onclick="navigateTo('musicas')"> Ver todas <i class="fas fa-arrow-right"></i> </button>
             </div>
             <div class="music-grid-modern" id="home-music-grid"></div>
         </div>
     </div>
 
-    <div id="page-musicas" class="page hidden pt-20">
-        <div class="container">
-            <h2 class="section-title mb-5">🎵 Todas as Músicas</h2>
-            <div class="search-bar mb-8">
-                <input type="text" id="search-input" placeholder="Buscar por música ou artista..." class="w-full p-4 rounded-xl bg-white/10 text-white outline-none">
+    <div id="page-musicas" class="page hidden">
+        <div class="container" style="margin-top: 80px;">
+            <h2 class="section-title" id="musicas-page-title" style="margin-bottom: 20px;">🎵 Todas as Músicas</h2>
+            <div class="search-bar" style="margin-bottom: 30px;">
+                <input type="text" id="search-input" placeholder="Buscar por música ou artista..." style="width: 100%; padding: 15px; border-radius: 10px; border: none; background: rgba(255,255,255,0.1); color: white;">
             </div>
             <div class="music-grid" id="musicas-grid"></div>
-            <div id="empty-musicas" class="empty-state hidden text-center p-12">
-                <i class="fas fa-music text-5xl text-gray-600 mb-4"></i>
+            <div id="empty-musicas" class="empty-state hidden" style="text-align: center; padding: 50px;">
+                <i class="fas fa-music" style="font-size: 3rem; color: #555; margin-bottom: 15px;"></i>
                 <h3>Nenhuma música encontrada</h3>
+                <p>Adicione músicas no painel administrativo</p>
             </div>
         </div>
     </div>
 
-    <div id="page-login" class="page hidden pt-24">
-        <div class="login-form max-w-md mx-auto bg-zinc-900 p-8 rounded-2xl">
-            <h2 class="text-center text-2xl mb-8">🔐 Login Admin</h2>
-            <div id="login-error" class="error-message hidden bg-red-500 p-3 rounded mb-4 text-center">Erro no login</div>
+    <div id="page-login" class="page hidden">
+        <div class="login-form">
+            <h2 style="text-align: center; margin-bottom: 30px;">🔐 Login Admin</h2>
+            <div id="login-error" class="error-message hidden" style="background: #ef4444; padding: 10px; border-radius: 5px; margin-bottom: 15px; text-align: center;">Usuário ou senha incorretos</div>
             <form id="login-form">
-                <div class="form-group mb-4">
-                    <label>Usuário</label>
-                    <input type="text" id="username" class="w-full p-3 bg-black rounded" required>
+                <div class="form-group">
+                    <label for="username">Usuário</label>
+                    <input type="text" id="username" value="admin" required>
                 </div>
-                <div class="form-group mb-6">
-                    <label>Senha</label>
-                    <input type="password" id="password" class="w-full p-3 bg-black rounded" required>
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" value="1234" required>
                 </div>
-                <button type="submit" class="btn-submit w-full bg-green-500 p-3 rounded-lg font-bold">Entrar</button>
+                <button type="submit" class="btn-submit">Entrar</button>
             </form>
         </div>
     </div>
 
-    <div id="page-admin" class="page hidden pt-20">
-        <div class="container">
-            <div class="flex justify-between items-center mb-8">
-                <h2 class="text-2xl font-bold">⚙️ Painel Admin</h2>
-                <button id="btn-logout" class="bg-zinc-800 px-4 py-2 rounded">Sair</button>
+    <div id="page-admin" class="page hidden">
+        <div class="container" style="margin-top: 80px;">
+            <div class="admin-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+                <h2 class="section-title" id="admin-page-title">⚙️ Painel Admin</h2>
+                <button class="btn-logout" id="btn-logout" style="background: #333; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Sair</button>
             </div>
             
-            <div class="admin-form bg-zinc-900 p-6 rounded-2xl">
-                <h3 class="text-xl mb-6 flex items-center gap-2">🎵 Adicionar Música</h3>
+            <div class="admin-form">
+                <h3 style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px;"><span style="font-size: 24px;">🎵</span> Adicionar Nova Música</h3>
                 <form id="admin-form">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <input type="text" id="music-name" placeholder="Nome da Música" class="p-3 bg-black rounded" required>
-                        <input type="text" id="artist-name" placeholder="Artista" class="p-3 bg-black rounded" required>
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label for="music-name"> <i class="fas fa-music"></i> Nome da Música </label>
+                            <input type="text" id="music-name" placeholder="Ex: Bohemian Rhapsody" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="artist-name"> <i class="fas fa-user"></i> Nome do Artista </label>
+                            <input type="text" id="artist-name" placeholder="Ex: Queen" required>
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="upload-section">
-                            <label class="block mb-2">Arquivo de Áudio</label>
-                            <div class="upload-area border-2 border-dashed border-zinc-700 p-4 rounded text-center cursor-pointer" id="audio-upload-area">
-                                <input type="file" id="audio-file" accept="audio/*" class="hidden">
-                                <div id="audio-placeholder">Clique para selecionar MP3</div>
-                                <div id="audio-preview" class="hidden text-green-400">Arquivo selecionado!</div>
+                    <div class="upload-section">
+                        <label class="upload-label" style="display: block; margin-bottom: 10px;"> <i class="fas fa-headphones"></i> Arquivo de Áudio </label>
+                        <div class="upload-area" id="audio-upload-area">
+                            <input type="file" id="audio-file" accept="audio/*" style="display: none;">
+                            <div class="upload-placeholder" id="audio-placeholder">
+                                <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                                <p>Clique para selecionar o arquivo</p>
+                            </div>
+                            <div class="upload-preview hidden" id="audio-preview">
+                                <i class="fas fa-file-audio" style="font-size: 24px;"></i>
+                                <div class="upload-info">
+                                    <p id="audio-filename">arquivo.mp3</p>
+                                    <span id="audio-size" style="font-size: 12px; color: #aaa;">2.5 MB</span>
+                                </div>
+                                <button type="button" class="btn-remove" id="remove-audio"><i class="fas fa-times"></i></button>
                             </div>
                         </div>
-                        <div class="upload-section">
-                            <label class="block mb-2">Capa da Música</label>
-                            <div class="upload-area border-2 border-dashed border-zinc-700 p-4 rounded text-center cursor-pointer" id="cover-upload-area">
-                                <input type="file" id="cover-file" accept="image/*" class="hidden">
-                                <div id="cover-placeholder">Clique para selecionar Imagem</div>
-                                <img id="cover-preview-img" class="hidden w-20 mx-auto mt-2 rounded">
-                            </div>
-                        </div>
+                        <input type="url" id="audio-url" placeholder="Ou cole a URL do áudio (Recomendado para evitar erros de limite)" style="margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: rgba(0,0,0,0.3); color: white;">
                     </div>
-                    <button type="submit" class="btn-submit mt-6 w-full bg-blue-600 p-4 rounded-xl font-bold">Salvar Música</button>
+
+                    <div class="upload-section">
+                        <label class="upload-label" style="display: block; margin-bottom: 10px;"> <i class="fas fa-image"></i> Capa da Música </label>
+                        <div class="upload-area" id="cover-upload-area">
+                            <input type="file" id="cover-file" accept="image/*" style="display: none;">
+                            <div class="upload-placeholder" id="cover-placeholder">
+                                <i class="fas fa-image" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                                <p>Clique para selecionar a imagem</p>
+                            </div>
+                            <div class="upload-preview hidden" id="cover-preview">
+                                <img id="cover-preview-img" src="" alt="Preview">
+                                <div class="upload-info">
+                                    <p id="cover-filename">imagem.jpg</p>
+                                </div>
+                                <button type="button" class="btn-remove" id="remove-cover"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                        <input type="url" id="cover-url" placeholder="Ou cole a URL da imagem aqui" style="margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: rgba(0,0,0,0.3); color: white;">
+                    </div>
+
+                    <button type="submit" class="btn-submit"> <i class="fas fa-plus-circle"></i> Adicionar Música </button>
                 </form>
             </div>
 
-            <div class="mt-10 max-w-3xl mx-auto">
-                <h3 class="mb-4 text-xl">Músicas Cadastradas</h3>
-                <div id="admin-music-list" class="space-y-2"></div>
+            <div class="music-list" style="max-width: 800px; margin: 30px auto;">
+                <h3 style="margin-bottom: 20px;">Músicas Cadastradas</h3>
+                <div id="admin-music-list"></div>
+                <div id="empty-admin" class="empty-state hidden" style="text-align: center; color: #777;">
+                    <i class="fas fa-music"></i>
+                    <h3>Nenhuma música cadastrada</h3>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="player">
-        <div class="player-content flex items-center justify-between px-4 h-full">
-            <div class="flex items-center gap-4 min-w-[200px]">
-                <img src="https://placehold.co/60" alt="Capa" class="player-cover w-14 h-14 rounded-lg object-cover" id="player-cover">
-                <div class="player-info overflow-hidden">
-                    <h4 id="player-title" class="truncate font-bold text-sm">Selecione uma música</h4>
-                    <p id="player-artist" class="text-xs text-gray-400">Mazzoni Music</p>
-                </div>
+        <div class="player-content"><img src="" alt="Capa" class="player-cover" id="player-cover">
+            <div class="player-info">
+                <h4 id="player-title">Selecione uma música</h4>
+                <p id="player-artist">Mazzoni Music</p>
             </div>
 
-            <div class="flex flex-col items-center flex-1 max-w-xl px-10">
-                <div class="player-controls flex items-center gap-6 mb-2">
-                    <button class="player-btn text-xl" id="btn-prev"><i class="fas fa-backward"></i></button>
-                    <button class="player-btn play-pause text-3xl" id="btn-play-pause"><i class="fas fa-play"></i></button>
-                    <button class="player-btn text-xl" id="btn-next"><i class="fas fa-forward"></i></button>
-                </div>
-                <div class="progress-container w-full flex items-center gap-3">
-                    <span class="time text-xs" id="current-time">0:00</span>
-                    <div class="progress-bar flex-1 h-1 bg-zinc-800 rounded-full cursor-pointer" id="progress-bar">
-                        <div class="progress-fill h-full bg-green-500 rounded-full w-0" id="progress-fill"></div>
-                    </div>
-                    <span class="time text-xs" id="duration-time">0:00</span>
-                </div>
-            </div>
+            <!-- ========= -->
+            <div class="audio-visualizer" id="visualizer">
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+            <div class="bar"></div>
+        </div>
 
-            <div class="volume-control flex items-center gap-2 min-w-[150px] justify-end">
-                <i class="fas fa-volume-up text-gray-400"></i>
-                <div class="volume-bar w-24 h-1 bg-zinc-800 rounded-full cursor-pointer" id="volume-bar">
-                    <div class="volume-fill h-full bg-gray-400 rounded-full w-full" id="volume-fill"></div>
-                </div>
-            </div>
+        <div class="player-controls"><button class="player-btn" id="btn-prev"> <i class="fas fa-backward"></i> </button> <button class="player-btn play-pause" id="btn-play-pause"> <i class="fas fa-play"></i> </button> <button class="player-btn" id="btn-next"> <i class="fas fa-forward"></i> </button></div>
+
+        <div class="progress-container"><span class="time" id="current-time">0:00</span>
+        <div class="progress-bar" id="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+        </div><span class="time" id="duration-time">0:00</span>
+        </div>
+        <div class="volume-control"><i class="fas fa-volume-up"></i>
+        <div class="volume-bar" id="volume-bar">
+        <div class="volume-fill" id="volume-fill"></div>
+        </div>
         </div>
     </div>
-
+  </div>
     <audio id="audio-player"></audio>
 </body>
 </html>

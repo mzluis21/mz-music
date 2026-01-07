@@ -1,10 +1,6 @@
-// ============================================
-// CONFIGURAÇÕES E SDK
-// ============================================
 const ApiDataSdk = {
     baseUrl: 'https://mz-music-backend.onrender.com',
 
-    // CORREÇÃO: Função para transformar caminhos relativos (/uploads/...) em URLs absolutas
     formatUrl: (path) => {
         if (!path) return 'https://placehold.co/300';
         if (path.startsWith('http')) return path;
@@ -22,9 +18,7 @@ const ApiDataSdk = {
             const res = await fetch(`${ApiDataSdk.baseUrl}/musicas`);
             const data = await res.json();
             handler.onDataChanged(data);
-        } catch (e) {
-            console.error("Erro ao carregar músicas:", e);
-        }
+        } catch (e) { console.error("Erro ao carregar:", e); }
     },
 
     create: async (formData) => {
@@ -34,10 +28,7 @@ const ApiDataSdk = {
                 headers: ApiDataSdk.getHeaders(),
                 body: formData
             });
-            if (res.ok) {
-                await ApiDataSdk.init(dataHandler);
-                return { isOk: true };
-            }
+            if (res.ok) { await ApiDataSdk.init(dataHandler); return { isOk: true }; }
             return { isOk: false };
         } catch (e) { return { isOk: false }; }
     },
@@ -53,9 +44,6 @@ const ApiDataSdk = {
     }
 };
 
-// ============================================
-// ESTADO DO APP
-// ============================================
 const appState = {
     playlist: [],
     filteredPlaylist: [],
@@ -88,29 +76,22 @@ const DOM = {
     loginError: document.getElementById('login-error')
 };
 
-// ============================================
-// UI - RENDERIZAÇÃO
-// ============================================
 const UI = {
     renderAll() {
         const list = appState.filteredPlaylist.length > 0 || DOM.searchInput.value !== "" 
                      ? appState.filteredPlaylist 
                      : appState.playlist;
 
-        // Renderiza Home (Sempre os primeiros 6 da lista original)
         DOM.homeMusicGrid.innerHTML = appState.playlist.slice(0, 6).map(m => UI.card(m)).join('');
-
-        // Renderiza Músicas
         DOM.musicasGrid.innerHTML = list.map(m => UI.card(m)).join('');
         
-        // Renderiza Admin
         DOM.adminMusicList.innerHTML = appState.playlist.map(m => `
             <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5">
                 <div class="flex items-center gap-3">
                     <img src="${ApiDataSdk.formatUrl(m.url_capa)}" class="w-10 h-10 object-cover rounded">
                     <div><div class="text-sm font-bold">${m.nome}</div><div class="text-xs text-gray-500">${m.artista}</div></div>
                 </div>
-                <button onclick="ApiDataSdk.delete('${m.id}')" class="text-red-500 hover:bg-red-500/20 p-2 rounded-lg transition"><i class="fas fa-trash"></i></button>
+                <button onclick="ApiDataSdk.delete('${m.id}')" class="text-red-500 p-2"><i class="fas fa-trash"></i></button>
             </div>
         `).join('');
 
@@ -133,9 +114,6 @@ const UI = {
 
 const dataHandler = { onDataChanged: (data) => { appState.playlist = data; UI.renderAll(); } };
 
-// ============================================
-// LÓGICA DO PLAYER
-// ============================================
 const Player = {
     playById(id) {
         const index = appState.playlist.findIndex(m => m.id === id);
@@ -155,43 +133,22 @@ const Player = {
 
     toggle() {
         if (!DOM.audioPlayer.src && appState.playlist.length > 0) return Player.playById(appState.playlist[0].id);
-        if (DOM.audioPlayer.paused) {
-            DOM.audioPlayer.play();
-            appState.isPlaying = true;
-        } else {
-            DOM.audioPlayer.pause();
-            appState.isPlaying = false;
-        }
+        if (DOM.audioPlayer.paused) { DOM.audioPlayer.play(); appState.isPlaying = true; }
+        else { DOM.audioPlayer.pause(); appState.isPlaying = false; }
         DOM.btnPlayPause.innerHTML = appState.isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
     }
 };
 
-// ============================================
-// EVENTOS E LOGIN
-// ============================================
 function setupEvents() {
-    // Menu
-    document.getElementById('menu-toggle').onclick = () => document.getElementById('mobile-menu').classList.toggle('active');
-
-    // Pesquisa
     DOM.searchInput.oninput = (e) => {
         const term = e.target.value.toLowerCase();
-        appState.filteredPlaylist = appState.playlist.filter(m => 
-            m.nome.toLowerCase().includes(term) || m.artista.toLowerCase().includes(term)
-        );
+        appState.filteredPlaylist = appState.playlist.filter(m => m.nome.toLowerCase().includes(term) || m.artista.toLowerCase().includes(term));
         UI.renderAll();
     };
 
-    // Controles Player
     DOM.btnPlayPause.onclick = Player.toggle;
-    DOM.btnNext.onclick = () => {
-        const nextIdx = (appState.currentMusicIndex + 1) % appState.playlist.length;
-        Player.playById(appState.playlist[nextIdx].id);
-    };
-    DOM.btnPrev.onclick = () => {
-        const prevIdx = (appState.currentMusicIndex - 1 + appState.playlist.length) % appState.playlist.length;
-        Player.playById(appState.playlist[prevIdx].id);
-    };
+    DOM.btnNext.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex + 1) % appState.playlist.length].id);
+    DOM.btnPrev.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex - 1 + appState.playlist.length) % appState.playlist.length].id);
 
     DOM.audioPlayer.ontimeupdate = () => {
         const pct = (DOM.audioPlayer.currentTime / DOM.audioPlayer.duration) * 100 || 0;
@@ -202,16 +159,13 @@ function setupEvents() {
 
     DOM.progressBar.onclick = (e) => {
         const rect = DOM.progressBar.getBoundingClientRect();
-        const pct = (e.clientX - rect.left) / rect.width;
-        DOM.audioPlayer.currentTime = pct * DOM.audioPlayer.duration;
+        DOM.audioPlayer.currentTime = ((e.clientX - rect.left) / rect.width) * DOM.audioPlayer.duration;
     };
 
-    // Login
     DOM.loginForm.onsubmit = async (e) => {
         e.preventDefault();
         const usuario = document.getElementById('username').value;
         const senha = document.getElementById('password').value;
-        
         try {
             const res = await fetch(`${ApiDataSdk.baseUrl}/login`, {
                 method: 'POST',
@@ -219,20 +173,11 @@ function setupEvents() {
                 body: JSON.stringify({ usuario, senha })
             });
             const data = await res.json();
-            if (res.ok) {
-                localStorage.setItem('token', data.token);
-                window.navigateTo('admin');
-            } else {
-                DOM.loginError.textContent = "Acesso negado";
-                DOM.loginError.classList.remove('hidden');
-            }
-        } catch (e) {
-            DOM.loginError.textContent = "Erro no servidor";
-            DOM.loginError.classList.remove('hidden');
-        }
+            if (res.ok) { localStorage.setItem('token', data.token); navigateTo('admin'); }
+            else { DOM.loginError.textContent = "Acesso Negado"; DOM.loginError.classList.remove('hidden'); }
+        } catch (e) { DOM.loginError.classList.remove('hidden'); }
     };
 
-    // Admin Upload
     DOM.adminForm.onsubmit = async (e) => {
         e.preventDefault();
         const fd = new FormData();
@@ -240,50 +185,28 @@ function setupEvents() {
         fd.append('artista', document.getElementById('artist-name').value);
         fd.append('audio', appState.audioFileData);
         fd.append('capa', appState.coverFileData);
-
         const btn = document.querySelector('.btn-submit');
         btn.disabled = true; btn.textContent = "Subindo...";
-
         const success = await ApiDataSdk.create(fd);
-        if (success.isOk) {
-            DOM.adminForm.reset();
-            alert("Música salva!");
-        }
+        if (success.isOk) { DOM.adminForm.reset(); alert("Sucesso!"); }
         btn.disabled = false; btn.textContent = "Salvar Música";
     };
 
-    // Estética Upload
     document.getElementById('audio-upload-area').onclick = () => document.getElementById('audio-file').click();
     document.getElementById('cover-upload-area').onclick = () => document.getElementById('cover-file').click();
-    document.getElementById('audio-file').onchange = (e) => {
-        appState.audioFileData = e.target.files[0];
-        document.getElementById('audio-placeholder').classList.add('hidden');
-        document.getElementById('audio-preview').classList.remove('hidden');
-    };
+    document.getElementById('audio-file').onchange = (e) => { appState.audioFileData = e.target.files[0]; document.getElementById('audio-placeholder').classList.add('hidden'); document.getElementById('audio-preview').classList.remove('hidden'); };
     document.getElementById('cover-file').onchange = (e) => {
         appState.coverFileData = e.target.files[0];
         const reader = new FileReader();
-        reader.onload = (ev) => {
-            document.getElementById('cover-preview-img').src = ev.target.result;
-            document.getElementById('cover-preview-img').classList.remove('hidden');
-            document.getElementById('cover-placeholder').classList.add('hidden');
-        };
+        reader.onload = (ev) => { document.getElementById('cover-preview-img').src = ev.target.result; document.getElementById('cover-preview-img').classList.remove('hidden'); document.getElementById('cover-placeholder').classList.add('hidden'); };
         reader.readAsDataURL(e.target.files[0]);
     };
 
-    document.getElementById('btn-logout').onclick = () => {
-        localStorage.removeItem('token');
-        window.location.reload();
-    };
-
     document.querySelectorAll('[data-page]').forEach(a => a.onclick = (e) => navigateTo(e.currentTarget.dataset.page));
+    document.getElementById('btn-logout').onclick = () => { localStorage.removeItem('token'); window.location.reload(); };
 }
 
-function formatTime(s) {
-    const min = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${min}:${sec.toString().padStart(2, '0')}`;
-}
+function formatTime(s) { const min = Math.floor(s / 60); const sec = Math.floor(s % 60); return `${min}:${sec.toString().padStart(2, '0')}`; }
 
 window.navigateTo = (page) => {
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
@@ -291,15 +214,6 @@ window.navigateTo = (page) => {
     window.scrollTo(0,0);
 };
 
-window.playRandomMusic = () => {
-    if (appState.playlist.length > 0) {
-        const rand = Math.floor(Math.random() * appState.playlist.length);
-        Player.playById(appState.playlist[rand].id);
-        window.navigateTo('musicas');
-    }
-};
+window.playRandomMusic = () => { if (appState.playlist.length > 0) Player.playById(appState.playlist[Math.floor(Math.random() * appState.playlist.length)].id); };
 
-document.addEventListener('DOMContentLoaded', () => {
-    setupEvents();
-    ApiDataSdk.init(dataHandler);
-});
+document.addEventListener('DOMContentLoaded', () => { setupEvents(); ApiDataSdk.init(dataHandler); });
