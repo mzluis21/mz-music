@@ -1,17 +1,4 @@
-const express = require('express');
-const cors = require('cors'); // 1. Importe o CORS
-const app = express();
-
-// 2. Configure o CORS para aceitar pedidos de QUALQUER lugar (para teste)
-app.use(cors()); 
-
-app.use(express.json());
-
-// ... suas rotas (login, musicas, etc) abaixo ...
-
 require('dotenv').config();
-
-
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -21,9 +8,17 @@ const path = require('path');
 const fs = require('fs');
 const { Pool } = require('pg');
 
-
+const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'chave_mestra_secreta';
+
+// ============================================
+// CONFIGURAÇÕES INICIAIS (O CORS VEM PRIMEIRO!)
+// ============================================
+app.use(cors()); // Libera para qualquer origem
+app.use(express.json());
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================
 // BANCO POSTGRES (RENDER)
@@ -33,13 +28,12 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-// Teste de conexão
 pool.connect()
-  .then(() => console.log('✅ Banco conectado'))
-  .catch(err => console.error('❌ Erro no banco:', err.message));
+  .then(() => console.log('✅ Banco conectado com sucesso'))
+  .catch(err => console.error('❌ Erro de conexão no banco:', err.message));
 
 // ============================================
-// UPLOAD
+// CONFIGURAÇÃO DE UPLOAD
 // ============================================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -55,106 +49,89 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ============================================
-// CONFIG
-// ============================================
-app.use(cors()); 
-app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ============================================
-// AUTH (Middleware)
+// MIDDLEWARE DE AUTENTICAÇÃO
 // ============================================
 const autenticar = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Faça login' });
+  if (!token) return res.status(401).json({ error: 'Faça login primeiro' });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Token inválido' });
+    if (err) return res.status(403).json({ error: 'Token inválido ou expirado' });
     req.user = user;
     next();
   });
 };
 
 // ============================================
-// ROTAS
+// ROTAS DO SISTEMA
 // ============================================
 
-// Login - CORRIGIDO
+// Login
 app.post('/login', async (req, res) => {
   try {
     const { usuario, senha } = req.body;
+    const result = await pool.query('SELECT * FROM usuarios WHERE login = $1', [usuario]);
 
-    const result = await pool.query(
-      'SELECT * FROM usuarios WHERE login = $1',
-      [usuario]
-    );
-
-    if (!result.rows.length)
-      return res.status(401).json({ error: 'Usuário inválido' });
+    if (result.rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
 
     const user = result.rows[0];
-
-    // MUDANÇA AQUI: de user.senha_hash para user.senha
-    const ok = await bcrypt.compare(senha, user.senha); 
+    const senhaOk = await bcrypt.compare(senha, user.senha);
     
-    if (!ok) return res.status(401).json({ error: 'Senha errada' });
+    if (!senhaOk) return res.status(401).json({ error: 'Senha incorreta' });
 
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '4h' });
     res.json({ token });
   } catch (err) {
-    console.error(err); // Ajuda a ver o erro no log do Render
-    res.status(500).json({ error: 'Erro no login' });
+    console.error('Erro no Login:', err);
+    res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
 
-app.get('/teste', (req, res) => {
-  res.json({ ok: true });
-});
-
-// Listar músicas
+// Listar músicas (Público)
 app.get('/musicas', async (req, res) => {
-  const result = await pool.query(
-    'SELECT * FROM musicas ORDER BY criado_em DESC'
-  );
-  res.json(result.rows);
+  try {
+    const result = await pool.query('SELECT * FROM musicas ORDER BY criado_em DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar músicas' });
+  }
 });
 
-// Criar música
-app.post(
-  '/musicas',
-  autenticar,
-  upload.fields([{ name: 'audio' }, { name: 'capa' }]),
-  async (req, res) => {
-    if (!req.files.audio)
-      return res.status(400).json({ error: 'Áudio obrigatório' });
+// Criar música (Protegido)
+app.post('/musicas', autenticar, upload.fields([{ name: 'audio' }, { name: 'capa' }]), async (req, res) => {
+  try {
+    if (!req.files.audio) return res.status(400).json({ error: 'Arquivo de áudio é obrigatório' });
 
     const { nome, artista } = req.body;
     const baseUrl = `${req.protocol}://${req.get('host')}`;
-
     const audioUrl = `${baseUrl}/uploads/${req.files.audio[0].filename}`;
-    const capaUrl = req.files.capa
-      ? `${baseUrl}/uploads/${req.files.capa[0].filename}`
-      : 'https://placehold.co/150';
+    const capaUrl = req.files.capa 
+      ? `${baseUrl}/uploads/${req.files.capa[0].filename}` 
+      : 'https://placehold.co/300';
 
     await pool.query(
-      'INSERT INTO musicas (nome, artista, audio_url, capa_url) VALUES ($1,$2,$3,$4)',
+      'INSERT INTO musicas (nome, artista, audio_url, capa_url) VALUES ($1, $2, $3, $4)',
       [nome, artista, audioUrl, capaUrl]
     );
 
     res.json({ isOk: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar música' });
   }
-);
-
-// Deletar música
-app.delete('/musicas/:id', autenticar, async (req, res) => {
-  await pool.query('DELETE FROM musicas WHERE id = $1', [req.params.id]);
-  res.json({ isOk: true });
 });
 
-// ============================================
-// START
-// ============================================
+// Deletar música (Protegido)
+app.delete('/musicas/:id', autenticar, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM musicas WHERE id = $1', [req.params.id]);
+    res.json({ isOk: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao deletar' });
+  }
+});
+
+// Inicialização
 app.listen(PORT, () => {
-  console.log(`🚀 Online na porta ${PORT}`);
+  console.log(`🚀 Mazzoni Music rodando na porta ${PORT}`);
 });

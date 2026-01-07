@@ -1,13 +1,14 @@
 /**
- * MAZZONI MUSIC - SCRIPT PRINCIPAL
- * Integração completa com Backend no Render
+ * MAZZONI MUSIC - SCRIPT PRINCIPAL (VERSÃO FINAL)
  */
 
 const ApiDataSdk = {
-    // URL do seu serviço de BACKEND no Render
-    baseUrl: 'https://mz-music-backend.onrender.com',
+    // 1. TENTA USAR A URL ATUAL, SE NÃO, USA O LINK DO RENDER
+    // Isso evita o erro de CORS se o site e o banco estiverem no mesmo serviço
+    baseUrl: window.location.hostname.includes('onrender.com') 
+             ? window.location.origin 
+             : 'https://mz-musicas.onrender.com', 
 
-    // Auxiliar para garantir que URLs de imagem/áudio funcionem
     formatUrl: (path) => {
         if (!path) return 'https://placehold.co/300';
         if (path.startsWith('http')) return path;
@@ -15,13 +16,11 @@ const ApiDataSdk = {
         return `${ApiDataSdk.baseUrl}${cleanPath}`;
     },
 
-    // Pega o token de admin para rotas protegidas
     getHeaders: () => {
         const token = localStorage.getItem('auth_token');
         return token ? { 'Authorization': `Bearer ${token}` } : {};
     },
 
-    // Busca músicas do banco de dados
     init: async (handler) => {
         try {
             const res = await fetch(`${ApiDataSdk.baseUrl}/musicas`);
@@ -34,7 +33,6 @@ const ApiDataSdk = {
         }
     },
 
-    // Envia nova música (Upload de arquivos)
     create: async (formData) => {
         try {
             const res = await fetch(`${ApiDataSdk.baseUrl}/musicas`, {
@@ -44,12 +42,10 @@ const ApiDataSdk = {
             });
             return { isOk: res.ok };
         } catch (e) {
-            console.error("Erro no upload:", e);
             return { isOk: false };
         }
     },
 
-    // Remove música do banco
     delete: async (id) => {
         try {
             const res = await fetch(`${ApiDataSdk.baseUrl}/musicas/${id}`, {
@@ -58,15 +54,11 @@ const ApiDataSdk = {
             });
             return { isOk: res.ok };
         } catch (e) {
-            console.error("Erro ao deletar:", e);
             return { isOk: false };
         }
     }
 };
 
-// ============================================
-// ESTADO GLOBAL DA APLICAÇÃO
-// ============================================
 const appState = {
     playlist: [],
     filteredPlaylist: [],
@@ -76,7 +68,6 @@ const appState = {
     coverFileData: null
 };
 
-// Mapeamento de elementos do HTML
 const DOM = {
     audioPlayer: document.getElementById('audio-player'),
     btnPlayPause: document.getElementById('btn-play-pause'),
@@ -86,8 +77,6 @@ const DOM = {
     progressFill: document.getElementById('progress-fill'),
     currentTimeEl: document.getElementById('current-time'),
     durationTimeEl: document.getElementById('duration-time'),
-    volumeBar: document.getElementById('volume-bar'),
-    volumeFill: document.getElementById('volume-fill'),
     playerCover: document.getElementById('player-cover'),
     playerTitle: document.getElementById('player-title'),
     playerArtist: document.getElementById('player-artist'),
@@ -100,41 +89,30 @@ const DOM = {
     loginError: document.getElementById('login-error')
 };
 
-// ============================================
-// UI - RENDERIZAÇÃO NA TELA
-// ============================================
 const UI = {
     renderAll() {
-        const list = appState.filteredPlaylist.length > 0 || DOM.searchInput.value !== "" 
+        const list = appState.filteredPlaylist.length > 0 || (DOM.searchInput && DOM.searchInput.value !== "") 
                      ? appState.filteredPlaylist 
                      : appState.playlist;
 
-        // Home Page (Destaques - Primeiras 6)
-        DOM.homeMusicGrid.innerHTML = appState.playlist.slice(0, 6).map(m => UI.card(m)).join('');
+        if(DOM.homeMusicGrid) DOM.homeMusicGrid.innerHTML = appState.playlist.slice(0, 6).map(m => UI.card(m)).join('');
+        if(DOM.musicasGrid) DOM.musicasGrid.innerHTML = list.map(m => UI.card(m)).join('');
         
-        // Página de Músicas
-        DOM.musicasGrid.innerHTML = list.map(m => UI.card(m)).join('');
-        
-        // Lista no Painel Admin
-        DOM.adminMusicList.innerHTML = appState.playlist.map(m => `
-            <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 mb-2">
-                <div class="flex items-center gap-3">
-                    <img src="${ApiDataSdk.formatUrl(m.capa_url)}" class="w-10 h-10 object-cover rounded">
-                    <div>
-                        <div class="text-sm font-bold">${m.nome}</div>
-                        <div class="text-xs text-gray-500">${m.artista}</div>
+        if(DOM.adminMusicList) {
+            DOM.adminMusicList.innerHTML = appState.playlist.map(m => `
+                <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 mb-2">
+                    <div class="flex items-center gap-3">
+                        <img src="${ApiDataSdk.formatUrl(m.capa_url)}" class="w-10 h-10 object-cover rounded">
+                        <div class="text-left">
+                            <div class="text-sm font-bold">${m.nome}</div>
+                            <div class="text-xs text-gray-400">${m.artista}</div>
+                        </div>
                     </div>
+                    <button onclick="Admin.handleDelete('${m.id}')" class="text-red-500 p-2 hover:bg-red-500/10 rounded-full transition">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
-                <button onclick="Admin.handleDelete('${m.id}')" class="text-red-500 p-2 hover:bg-red-500/10 rounded-full transition">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `).join('');
-
-        // Atualiza contadores na Home
-        if(document.getElementById('total-songs')) {
-            document.getElementById('total-songs').textContent = appState.playlist.length;
-            document.getElementById('total-artists').textContent = new Set(appState.playlist.map(m => m.artista)).size;
+            `).join('');
         }
     },
 
@@ -147,17 +125,12 @@ const UI = {
                     <i class="fas fa-play text-white text-2xl"></i>
                 </div>
             </div>
-            <div class="font-bold text-sm truncate">${m.nome}</div>
-            <div class="text-xs text-gray-500 truncate">${m.artista}</div>
+            <div class="font-bold text-sm truncate text-left">${m.nome}</div>
+            <div class="text-xs text-gray-500 truncate text-left">${m.artista}</div>
         </div>`;
     }
 };
 
-const dataHandler = { onDataChanged: (data) => { appState.playlist = data; UI.renderAll(); } };
-
-// ============================================
-// PLAYER DE ÁUDIO
-// ============================================
 const Player = {
     playById(id) {
         const index = appState.playlist.findIndex(m => String(m.id) === String(id));
@@ -178,7 +151,6 @@ const Player = {
 
     toggle() {
         if (!DOM.audioPlayer.src && appState.playlist.length > 0) return Player.playById(appState.playlist[0].id);
-        
         if (DOM.audioPlayer.paused) {
             DOM.audioPlayer.play();
             appState.isPlaying = true;
@@ -190,9 +162,6 @@ const Player = {
     }
 };
 
-// ============================================
-// ADMIN E AUTENTICAÇÃO
-// ============================================
 const Auth = {
     async handleLogin(usuario, senha) {
         try {
@@ -202,50 +171,43 @@ const Auth = {
                 body: JSON.stringify({ usuario, senha })
             });
             const data = await res.json();
-
             if (res.ok && data.token) {
                 localStorage.setItem('auth_token', data.token);
-                DOM.loginError.classList.add('hidden');
                 window.navigateTo('admin');
             } else {
                 DOM.loginError.textContent = data.error || "Acesso Negado";
                 DOM.loginError.classList.remove('hidden');
             }
         } catch (e) {
-            DOM.loginError.textContent = "Erro ao conectar com servidor";
-            DOM.loginError.classList.remove('hidden');
+            DOM.loginError.textContent = "Erro ao conectar";
         }
     }
 };
 
 const Admin = {
     async handleDelete(id) {
-        if (confirm("Deseja excluir esta música permanentemente?")) {
-            const success = await ApiDataSdk.delete(id);
-            if (success) ApiDataSdk.init(dataHandler);
+        if (confirm("Excluir música?")) {
+            await ApiDataSdk.delete(id);
+            ApiDataSdk.init({ onDataChanged: (data) => { appState.playlist = data; UI.renderAll(); } });
         }
     }
 };
 
-// ============================================
-// EVENTOS E INICIALIZAÇÃO
-// ============================================
 function setupEvents() {
-    // Busca
-    DOM.searchInput.oninput = (e) => {
-        const term = e.target.value.toLowerCase();
-        appState.filteredPlaylist = appState.playlist.filter(m => 
-            m.nome.toLowerCase().includes(term) || m.artista.toLowerCase().includes(term)
-        );
-        UI.renderAll();
-    };
+    if(DOM.searchInput) {
+        DOM.searchInput.oninput = (e) => {
+            const term = e.target.value.toLowerCase();
+            appState.filteredPlaylist = appState.playlist.filter(m => 
+                m.nome.toLowerCase().includes(term) || m.artista.toLowerCase().includes(term)
+            );
+            UI.renderAll();
+        };
+    }
 
-    // Controles do Player
     DOM.btnPlayPause.onclick = Player.toggle;
     DOM.btnNext.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex + 1) % appState.playlist.length]?.id);
     DOM.btnPrev.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex - 1 + appState.playlist.length) % appState.playlist.length]?.id);
 
-    // Barra de Progresso
     DOM.audioPlayer.ontimeupdate = () => {
         const pct = (DOM.audioPlayer.currentTime / DOM.audioPlayer.duration) * 100 || 0;
         DOM.progressFill.style.width = pct + '%';
@@ -258,48 +220,51 @@ function setupEvents() {
         DOM.audioPlayer.currentTime = ((e.clientX - rect.left) / rect.width) * DOM.audioPlayer.duration;
     };
 
-    // Login Form
-    DOM.loginForm.onsubmit = (e) => {
-        e.preventDefault();
-        Auth.handleLogin(document.getElementById('username').value, document.getElementById('password').value);
-    };
+    if(DOM.loginForm) {
+        DOM.loginForm.onsubmit = (e) => {
+            e.preventDefault();
+            Auth.handleLogin(document.getElementById('username').value, document.getElementById('password').value);
+        };
+    }
 
-    // Upload de Músicas (Admin)
-    DOM.adminForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const fd = new FormData();
-        fd.append('nome', document.getElementById('music-name').value);
-        fd.append('artista', document.getElementById('artist-name').value);
-        fd.append('audio', appState.audioFileData);
-        if (appState.coverFileData) fd.append('capa', appState.coverFileData);
+    if(DOM.adminForm) {
+        DOM.adminForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData();
+            fd.append('nome', document.getElementById('music-name').value);
+            fd.append('artista', document.getElementById('artist-name').value);
+            fd.append('audio', appState.audioFileData);
+            if (appState.coverFileData) fd.append('capa', appState.coverFileData);
 
-        const btn = DOM.adminForm.querySelector('button[type="submit"]');
-        btn.disabled = true; 
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subindo...';
+            const btn = DOM.adminForm.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            btn.innerHTML = 'Subindo...';
 
-        const res = await ApiDataSdk.create(fd);
-        if (res.isOk) {
-            alert("Música adicionada com sucesso!");
-            DOM.adminForm.reset();
-            ApiDataSdk.init(dataHandler);
-        } else {
-            alert("Erro ao enviar. Verifique se o arquivo é um áudio válido.");
-        }
-        btn.disabled = false;
-        btn.innerHTML = 'Salvar Música';
-    };
+            const res = await ApiDataSdk.create(fd);
+            if (res.isOk) {
+                alert("Sucesso!");
+                DOM.adminForm.reset();
+                ApiDataSdk.init({ onDataChanged: (data) => { appState.playlist = data; UI.renderAll(); } });
+            }
+            btn.disabled = false;
+            btn.innerHTML = 'Salvar Música';
+        };
+    }
 
-    // Eventos de clique nas áreas de upload
-    document.getElementById('audio-upload-area').onclick = () => document.getElementById('audio-file').click();
-    document.getElementById('cover-upload-area').onclick = () => document.getElementById('cover-file').click();
+    // Upload handlers
+    const audioArea = document.getElementById('audio-upload-area');
+    const coverArea = document.getElementById('cover-upload-area');
+    if(audioArea) audioArea.onclick = () => document.getElementById('audio-file').click();
+    if(coverArea) coverArea.onclick = () => document.getElementById('cover-file').click();
 
-    document.getElementById('audio-file').onchange = (e) => {
+    const audioFile = document.getElementById('audio-file');
+    if(audioFile) audioFile.onchange = (e) => {
         appState.audioFileData = e.target.files[0];
         document.getElementById('audio-placeholder').textContent = "✓ " + e.target.files[0].name;
-        document.getElementById('audio-placeholder').classList.add('text-green-500', 'font-bold');
     };
 
-    document.getElementById('cover-file').onchange = (e) => {
+    const coverFile = document.getElementById('cover-file');
+    if(coverFile) coverFile.onchange = (e) => {
         appState.coverFileData = e.target.files[0];
         const reader = new FileReader();
         reader.onload = (ev) => {
@@ -310,7 +275,6 @@ function setupEvents() {
         reader.readAsDataURL(e.target.files[0]);
     };
 
-    // Navegação entre páginas (SPA)
     document.querySelectorAll('[data-page]').forEach(a => {
         a.onclick = (e) => {
             e.preventDefault();
@@ -318,22 +282,10 @@ function setupEvents() {
         };
     });
 
-    document.getElementById('btn-logout').onclick = () => {
-        localStorage.removeItem('auth_token');
-        window.location.reload();
-    };
-
-    // Toggle Menu Mobile
-    const menuToggle = document.getElementById('menu-toggle');
-    if(menuToggle) {
-        menuToggle.onclick = () => {
-            document.getElementById('mobile-menu').classList.toggle('hidden');
-            document.getElementById('mobile-menu').classList.toggle('flex');
-        };
-    }
+    const logout = document.getElementById('btn-logout');
+    if(logout) logout.onclick = () => { localStorage.removeItem('auth_token'); window.location.reload(); };
 }
 
-// Helpers
 function formatTime(s) {
     const min = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
@@ -344,25 +296,10 @@ window.navigateTo = (page) => {
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
     const target = document.getElementById(`page-${page}`);
     if(target) target.classList.remove('hidden');
-    
-    // Esconde menu mobile ao navegar
-    const mobileMenu = document.getElementById('mobile-menu');
-    if(mobileMenu) {
-        mobileMenu.classList.add('hidden');
-        mobileMenu.classList.remove('flex');
-    }
     window.scrollTo(0,0);
 };
 
-window.playRandomMusic = () => {
-    if (appState.playlist.length > 0) {
-        const rand = appState.playlist[Math.floor(Math.random() * appState.playlist.length)];
-        Player.playById(rand.id);
-    }
-};
-
-// Iniciar Aplicação
 document.addEventListener('DOMContentLoaded', () => {
     setupEvents();
-    ApiDataSdk.init(dataHandler);
+    ApiDataSdk.init({ onDataChanged: (data) => { appState.playlist = data; UI.renderAll(); } });
 });
