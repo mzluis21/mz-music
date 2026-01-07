@@ -6,6 +6,26 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
-    "mysql2": "^3.15.3"
-  }
+    "mysql2": "^3.15.3",
+    "pg": "^8.16.3"
+  },
+  "name": "backend-mz",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mzluis21/backend-mz.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mzluis21/backend-mz/issues"
+  },
+  "homepage": "https://github.com/mzluis21/backend-mz#readme",
+  "description": ""
 }
