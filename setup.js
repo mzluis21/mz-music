@@ -1,37 +1,25 @@
-const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
-
-// Usando a URL que você me passou
-const pool = new Pool({
-  connectionString: 'postgresql://mazzoni_user:b3iEUQaCisgWeXa1Bc2SsutNhObasmIs@dpg-d57iar6uk2gs73d2qh60-a.virginia-postgres.render.com/mazzoni_music',
-  ssl: { rejectUnauthorized: false }
-});
-
-async function init() {
+app.post('/login', async (req, res) => {
   try {
-    console.log("⏳ Criando tabelas no Render...");
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS usuarios (
-        id SERIAL PRIMARY KEY,
-        login TEXT UNIQUE NOT NULL,
-        senha_hash TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS musicas (
-        id SERIAL PRIMARY KEY,
-        nome TEXT NOT NULL,
-        artista TEXT,
-        audio_url TEXT NOT NULL,
-        capa_url TEXT,
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    const senhaHashed = await bcrypt.hash('admin123', 10);
-    await pool.query('INSERT INTO usuarios (login, senha_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING', ['admin', senhaHashed]);
-    console.log("✅ Sucesso! Tabelas prontas e usuário 'admin' criado.");
-    process.exit(0);
+    const { usuario, senha } = req.body;
+
+    const result = await pool.query(
+      'SELECT * FROM usuarios WHERE login = $1',
+      [usuario]
+    );
+
+    if (!result.rows.length)
+      return res.status(401).json({ error: 'Usuário inválido' });
+
+    const user = result.rows[0];
+
+    // CORREÇÃO: Usando senha_hash para bater com seu setup.js
+    const ok = await bcrypt.compare(senha, user.senha_hash); 
+    
+    if (!ok) return res.status(401).json({ error: 'Senha errada' });
+
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '4h' });
+    res.json({ token });
   } catch (err) {
-    console.error("❌ Erro:", err);
-    process.exit(1);
+    res.status(500).json({ error: 'Erro no login' });
   }
-}
-init();
+});

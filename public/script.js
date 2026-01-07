@@ -1,9 +1,9 @@
 // ============================================
     // 1. SDK REAL (CONECTA NO BACKEND)
     // ============================================
+    // --- DEPOIS (MUDE PARA ESTE) ---
     const ApiDataSdk = {
-        baseUrl: 'http://localhost:3000',
-
+    baseUrl: 'https://mz-music-backend.onrender.com',
         // Pega o token salvo para provar que é admin
         getHeaders: () => {
             const token = localStorage.getItem('auth_token');
@@ -487,3 +487,5 @@
         Auth.check();
         await window.dataSdk.init(dataHandler);
     });
+
+    

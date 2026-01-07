@@ -45,13 +45,13 @@ const upload = multer({ storage });
 // ============================================
 // CONFIG
 // ============================================
-app.use(cors()); // ← apenas uma vez
+app.use(cors()); 
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================
-// AUTH
+// AUTH (Middleware)
 // ============================================
 const autenticar = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -68,7 +68,7 @@ const autenticar = (req, res, next) => {
 // ROTAS
 // ============================================
 
-// Login
+// Login - CORRIGIDO
 app.post('/login', async (req, res) => {
   try {
     const { usuario, senha } = req.body;
@@ -82,12 +82,16 @@ app.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Usuário inválido' });
 
     const user = result.rows[0];
-    const ok = await bcrypt.compare(senha, user.senha_hash);
+
+    // MUDANÇA AQUI: de user.senha_hash para user.senha
+    const ok = await bcrypt.compare(senha, user.senha); 
+    
     if (!ok) return res.status(401).json({ error: 'Senha errada' });
 
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '4h' });
     res.json({ token });
   } catch (err) {
+    console.error(err); // Ajuda a ver o erro no log do Render
     res.status(500).json({ error: 'Erro no login' });
   }
 });
@@ -95,7 +99,6 @@ app.post('/login', async (req, res) => {
 app.get('/teste', (req, res) => {
   res.json({ ok: true });
 });
-
 
 // Listar músicas
 app.get('/musicas', async (req, res) => {
@@ -143,4 +146,3 @@ app.delete('/musicas/:id', autenticar, async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Online na porta ${PORT}`);
 });
-
