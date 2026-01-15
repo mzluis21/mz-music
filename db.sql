@@ -22,3 +22,7 @@ CREATE TABLE musicas (
 -- 4. Insere o admin (usando senha_hash)
 INSERT INTO usuarios (login, senha_hash) 
 VALUES ('admin', '$2b$10$76YmP1N.R1.f7.G.tMvYueP/3mI0ZlGvD5.N7K0Z1p2O3m4n5o6p7');
+
+SELECT column_name FROM information_schema.columns WHERE table_name = 'usuarios';
+
+SELECT * FROM usuarios;

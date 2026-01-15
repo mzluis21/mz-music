@@ -13,15 +13,15 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'chave_mestra_secreta';
 
 // ============================================
-// CONFIGURAÇÕES INICIAIS (O CORS VEM PRIMEIRO!)
+// CONFIGURAÇÕES INICIAIS
 // ============================================
-app.use(cors()); // Libera para qualquer origem
+app.use(cors()); 
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ============================================
-// BANCO POSTGRES (RENDER)
+// CONEXÃO COM O BANCO (RENDER)
 // ============================================
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -66,23 +66,32 @@ const autenticar = (req, res, next) => {
 // ROTAS DO SISTEMA
 // ============================================
 
-// Login
+// ROTA DE LOGIN (Única e Corrigida)
 app.post('/login', async (req, res) => {
   try {
     const { usuario, senha } = req.body;
-    const result = await pool.query('SELECT * FROM usuarios WHERE login = $1', [usuario]);
 
-    if (result.rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
+    const result = await pool.query(
+      'SELECT * FROM usuarios WHERE login = $1',
+      [usuario]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Usuário não encontrado' });
+    }
 
     const user = result.rows[0];
-    const senhaOk = await bcrypt.compare(senha, user.senha);
+
+    // CORREÇÃO: Usando 'senha_hash' para bater com seu banco (Image_5262a6.png)
+    // Isso evita o erro "Illegal arguments: string, undefined"
+    const ok = await bcrypt.compare(senha, user.senha_hash); 
     
-    if (!senhaOk) return res.status(401).json({ error: 'Senha incorreta' });
+    if (!ok) return res.status(401).json({ error: 'Senha incorreta' });
 
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '4h' });
     res.json({ token });
   } catch (err) {
-    console.error('Erro no Login:', err);
+    console.error('Erro no Login:', err.message); // Log detalhado para ver no Render
     res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
