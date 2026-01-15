@@ -1,17 +1,17 @@
--- 1. APAGAR AS TABELAS ANTIGAS PARA LIMPAR O ERRO
-DROP TABLE IF EXISTS usuarios;
+-- 1. Limpa tudo
 DROP TABLE IF EXISTS musicas;
+DROP TABLE IF EXISTS usuarios;
 
--- 2. CRIAR A TABELA DE USUÁRIOS COM O NOME CORRETO (senha)
+-- 2. Cria a tabela de usuários com o nome de coluna CORRETO para o seu código
 CREATE TABLE usuarios (
-  id INT AUTO_INCREMENT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   login VARCHAR(50) UNIQUE NOT NULL,
-  senha VARCHAR(255) NOT NULL
+  senha_hash VARCHAR(255) NOT NULL
 );
 
--- 3. CRIAR A TABELA DE MÚSICAS
+-- 3. Cria a tabela de músicas
 CREATE TABLE musicas (
-  id INT AUTO_INCREMENT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   nome VARCHAR(255) NOT NULL,
   artista VARCHAR(255) NOT NULL,
   audio_url TEXT NOT NULL,
@@ -19,6 +19,6 @@ CREATE TABLE musicas (
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. AGORA SIM, INSERIR O USUÁRIO ADMIN
-INSERT INTO usuarios (login, senha) 
-VALUES ('admin', '$2a$10$76YmP1N.R1.f7.G.tMvYueP/3mI0ZlGvD5.N7K0Z1p2O3m4n5o6p7');
+-- 4. Insere o admin (usando senha_hash)
+INSERT INTO usuarios (login, senha_hash) 
+VALUES ('admin', '$2b$10$76YmP1N.R1.f7.G.tMvYueP/3mI0ZlGvD5.N7K0Z1p2O3m4n5o6p7');

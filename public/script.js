@@ -1,13 +1,12 @@
 /**
- * MAZZONI MUSIC - SCRIPT PRINCIPAL (VERSÃO FINAL)
+ * MAZZONI MUSIC - SCRIPT PRINCIPAL (VERSÃO COMPLETA E FINAL)
  */
 
 const ApiDataSdk = {
-    // 1. TENTA USAR A URL ATUAL, SE NÃO, USA O LINK DO RENDER
-    // Isso evita o erro de CORS se o site e o banco estiverem no mesmo serviço
+    // Detecta se está no Render para ajustar a URL e evitar erros de CORS
     baseUrl: window.location.hostname.includes('onrender.com') 
              ? window.location.origin 
-             : 'https://mz-musicas.onrender.com', 
+             : 'https://mz-music-backend.onrender.com', 
 
     formatUrl: (path) => {
         if (!path) return 'https://placehold.co/300';
@@ -86,7 +85,9 @@ const DOM = {
     loginForm: document.getElementById('login-form'),
     adminForm: document.getElementById('admin-form'),
     searchInput: document.getElementById('search-input'),
-    loginError: document.getElementById('login-error')
+    loginError: document.getElementById('login-error'),
+    menuToggle: document.getElementById('menu-toggle'),
+    mobileMenu: document.getElementById('mobile-menu')
 };
 
 const UI = {
@@ -95,9 +96,11 @@ const UI = {
                      ? appState.filteredPlaylist 
                      : appState.playlist;
 
+        // Renderiza Grids
         if(DOM.homeMusicGrid) DOM.homeMusicGrid.innerHTML = appState.playlist.slice(0, 6).map(m => UI.card(m)).join('');
         if(DOM.musicasGrid) DOM.musicasGrid.innerHTML = list.map(m => UI.card(m)).join('');
         
+        // Renderiza Lista Admin
         if(DOM.adminMusicList) {
             DOM.adminMusicList.innerHTML = appState.playlist.map(m => `
                 <div class="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 mb-2">
@@ -114,6 +117,12 @@ const UI = {
                 </div>
             `).join('');
         }
+
+        // Atualiza Contadores na Home
+        const totalSongsEl = document.getElementById('total-songs');
+        const totalArtistsEl = document.getElementById('total-artists');
+        if(totalSongsEl) totalSongsEl.textContent = appState.playlist.length;
+        if(totalArtistsEl) totalArtistsEl.textContent = new Set(appState.playlist.map(m => m.artista)).size;
     },
 
     card(m) {
@@ -194,6 +203,15 @@ const Admin = {
 };
 
 function setupEvents() {
+    // Menu Hambúrguer
+    if (DOM.menuToggle && DOM.mobileMenu) {
+        DOM.menuToggle.onclick = () => {
+            DOM.mobileMenu.classList.toggle('hidden');
+            DOM.mobileMenu.classList.toggle('flex');
+        };
+    }
+
+    // Busca
     if(DOM.searchInput) {
         DOM.searchInput.oninput = (e) => {
             const term = e.target.value.toLowerCase();
@@ -204,6 +222,7 @@ function setupEvents() {
         };
     }
 
+    // Controles do Player
     DOM.btnPlayPause.onclick = Player.toggle;
     DOM.btnNext.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex + 1) % appState.playlist.length]?.id);
     DOM.btnPrev.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex - 1 + appState.playlist.length) % appState.playlist.length]?.id);
@@ -220,6 +239,7 @@ function setupEvents() {
         DOM.audioPlayer.currentTime = ((e.clientX - rect.left) / rect.width) * DOM.audioPlayer.duration;
     };
 
+    // Forms
     if(DOM.loginForm) {
         DOM.loginForm.onsubmit = (e) => {
             e.preventDefault();
@@ -251,7 +271,7 @@ function setupEvents() {
         };
     }
 
-    // Upload handlers
+    // Upload Handlers
     const audioArea = document.getElementById('audio-upload-area');
     const coverArea = document.getElementById('cover-upload-area');
     if(audioArea) audioArea.onclick = () => document.getElementById('audio-file').click();
@@ -275,6 +295,7 @@ function setupEvents() {
         reader.readAsDataURL(e.target.files[0]);
     };
 
+    // Navegação e links
     document.querySelectorAll('[data-page]').forEach(a => {
         a.onclick = (e) => {
             e.preventDefault();
@@ -296,7 +317,21 @@ window.navigateTo = (page) => {
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
     const target = document.getElementById(`page-${page}`);
     if(target) target.classList.remove('hidden');
+
+    // Fecha o menu mobile ao navegar
+    if (DOM.mobileMenu) {
+        DOM.mobileMenu.classList.add('hidden');
+        DOM.mobileMenu.classList.remove('flex');
+    }
     window.scrollTo(0,0);
+};
+
+// Música Aleatória (Botão Surpreenda-me)
+window.playRandomMusic = () => {
+    if (appState.playlist.length > 0) {
+        const rand = appState.playlist[Math.floor(Math.random() * appState.playlist.length)];
+        Player.playById(rand.id);
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {

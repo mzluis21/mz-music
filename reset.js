@@ -2,31 +2,45 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
-// Usando as configurações do seu .env
+// Configuração para o Banco do Render com SSL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-async function resetAdmin() {
+async function reset() {
   try {
-    console.log("⏳ Resetando senha do admin no banco do Render...");
+    console.log("⏳ Iniciando reset do admin no Render...");
+    
+    // Criando o hash da senha 'admin123'
     const hash = await bcrypt.hash('admin123', 10);
     
-    // Este comando atualiza a senha se o admin já existir ou cria se não existir
+    // 1. Garante que a tabela tem a coluna senha_hash
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        login VARCHAR(50) UNIQUE NOT NULL,
+        senha_hash VARCHAR(255) NOT NULL
+      );
+    `);
+
+    // 2. Insere ou atualiza o admin
     await pool.query(`
       INSERT INTO usuarios (login, senha_hash) 
       VALUES ($1, $2) 
       ON CONFLICT (login) 
-      DO UPDATE SET senha_hash = EXCLUDED.senha_hash
+      DO UPDATE SET senha_hash = EXCLUDED.senha_hash;
     `, ['admin', hash]);
-    
-    console.log("✅ Sucesso! Senha do 'admin' agora é 'admin123'");
+
+    console.log("✅ Admin configurado com sucesso!");
+    console.log("👤 Usuário: admin");
+    console.log("🔑 Senha: admin123");
+
   } catch (err) {
-    console.error("❌ Erro ao resetar:", err.message);
+    console.error("❌ Erro no reset.js:", err.message);
   } finally {
     await pool.end();
   }
 }
 
-resetAdmin();
+reset();
