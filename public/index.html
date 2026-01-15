@@ -4,158 +4,99 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mazzoni Music</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="estilos.css">
     <script src="script.js" defer></script>
 </head>
-<body class="bg-[#0f0f0f] text-white">
+<body class="bg-[#0f0f0f] text-white pb-32">
 
-    <header class="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-md border-b border-white/10">
-        <div class="max-w-7xl mx-auto px-4 h-16 flex justify-between items-center">
-            <div class="logo font-black text-xl tracking-tighter" id="site-title">MAZZONI MUSIC</div>
-            
-            <nav class="hidden md:flex gap-8">
-                <a href="#" data-page="home" class="hover:text-purple-500 transition">Home</a>
-                <a href="#" data-page="musicas" class="hover:text-purple-500 transition">Músicas</a>
-                <a href="#" data-page="login" class="hover:text-purple-500 transition">Login Admin</a>
+    <header class="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="text-xl font-black tracking-tighter" id="site-title">MAZZONI MUSIC</div>
+            <nav class="hidden md:flex gap-6">
+                <a href="#" data-page="home" class="hover:text-blue-400">Home</a>
+                <a href="#" data-page="musicas" class="hover:text-blue-400">Músicas</a>
+                <a href="#" data-page="login" class="hover:text-blue-400">Login Admin</a>
             </nav>
-
-            <button id="menu-toggle" class="md:hidden p-2 text-2xl">
-                <i class="fas fa-bars"></i>
-            </button>
+            <button id="menu-toggle" class="md:hidden text-2xl"><i class="fas fa-bars"></i></button>
         </div>
     </header>
 
-    <div id="mobile-menu" class="hidden fixed inset-0 bg-black/95 z-[60] flex-col items-center justify-center gap-8 text-2xl transition-all">
-        <button id="close-menu" class="absolute top-5 right-5 text-white text-4xl">&times;</button>
+    <div id="mobile-menu" class="hidden fixed inset-0 bg-black/95 z-[100] flex-col items-center justify-center gap-8 text-2xl">
+        <button id="close-menu" class="absolute top-5 right-5 text-4xl">&times;</button>
         <a href="#" data-page="home">🏠 Home</a>
         <a href="#" data-page="musicas">🎵 Músicas</a>
         <a href="#" data-page="login">🔐 Login Admin</a>
     </div>
 
     <div id="page-home" class="page">
-        <div class="hero-modern relative overflow-hidden pt-32 pb-20">
-            <div class="container mx-auto px-4 text-center relative z-10">
-                <div class="hero-badge inline-block bg-white/10 px-4 py-1 rounded-full text-sm mb-6 border border-white/5">
-                    🎵 Streaming de Alta Qualidade
+        <div class="hero-modern min-h-[60vh] flex items-center justify-center relative overflow-hidden px-4">
+            <div class="text-center z-10">
+                <h1 class="text-5xl md:text-7xl font-black mb-4">MAZZONI MUSIC</h1>
+                <p class="text-gray-400 mb-8">O som que move a sua vibe.</p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <button class="bg-blue-600 px-8 py-3 rounded-full font-bold" onclick="window.navigateTo('musicas')">Explorar</button>
+                    <button class="bg-white/10 px-8 py-3 rounded-full font-bold" onclick="window.playRandomMusic()">Surpreenda-me</button>
                 </div>
-                <h1 class="text-6xl md:text-8xl font-black mb-4 tracking-tighter" id="brand-name">MAZZONI MUSIC</h1>
-                <p class="text-gray-400 text-xl mb-10" id="slogan-text">O som que move a sua vibe.</p>
-                
-                <div class="flex flex-wrap justify-center gap-4 mb-12">
-                    <div class="text-center px-6">
-                        <div class="text-3xl font-bold" id="total-songs">0</div>
-                        <div class="text-gray-500 text-sm">Músicas</div>
-                    </div>
-                    <div class="text-center px-6 border-l border-white/10">
-                        <div class="text-3xl font-bold" id="total-artists">0</div>
-                        <div class="text-gray-500 text-sm">Artistas</div>
-                    </div>
-                </div>
-
-                <div class="flex justify-center gap-4">
-                    <button class="bg-white text-black px-8 py-3 rounded-full font-bold hover:scale-105 transition" onclick="window.navigateTo('musicas')">Explorar</button>
-                    <button class="bg-white/10 px-8 py-3 rounded-full font-bold hover:bg-white/20 transition" onclick="window.playRandomMusic()">Surpreenda-me</button>
+                <div class="flex justify-center gap-10 mt-12 text-center">
+                    <div><div id="total-songs" class="text-2xl font-bold">0</div><div class="text-xs text-gray-500 uppercase">Músicas</div></div>
+                    <div><div id="total-artists" class="text-2xl font-bold">0</div><div class="text-xs text-gray-500 uppercase">Artistas</div></div>
                 </div>
             </div>
         </div>
 
-        <div class="container mx-auto px-4 py-10">
+        <div class="max-w-7xl mx-auto px-4 py-12">
             <h2 class="text-2xl font-bold mb-6">🔥 Destaques da Semana</h2>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6" id="home-music-grid"></div>
         </div>
     </div>
 
-    <div id="page-musicas" class="page hidden pt-24">
-        <div class="container mx-auto px-4">
-            <h2 class="text-3xl font-bold mb-6">🎵 Todas as Músicas</h2>
-            <input type="text" id="search-input" placeholder="Buscar música ou artista..." class="w-full p-4 bg-white/5 rounded-xl border border-white/10 mb-10 focus:outline-none focus:border-purple-500">
+    <div id="page-musicas" class="page hidden pt-24 px-4">
+        <div class="max-w-7xl mx-auto">
+            <h2 class="text-3xl font-bold mb-8">🎵 Todas as Músicas</h2>
+            <input type="text" id="search-input" placeholder="Buscar música ou artista..." class="w-full p-4 rounded-xl bg-white/5 border border-white/10 mb-8 outline-none focus:border-blue-500">
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6" id="musicas-grid"></div>
         </div>
     </div>
 
-    <div id="page-login" class="page hidden pt-32">
+    <div id="page-login" class="page hidden pt-32 px-4">
         <div class="max-w-md mx-auto bg-white/5 p-8 rounded-2xl border border-white/10">
-            <h2 class="text-2xl font-bold mb-6 text-center">🔐 Login Admin</h2>
-            <div id="login-error" class="hidden bg-red-500/20 text-red-500 p-3 rounded-lg mb-4 text-center text-sm border border-red-500/20"></div>
-            <form id="login-form" class="space-y-4">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Usuário</label>
-                    <input type="text" id="username" class="w-full p-3 bg-black rounded-lg border border-white/10 focus:border-purple-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Senha</label>
-                    <input type="password" id="password" class="w-full p-3 bg-black rounded-lg border border-white/10 focus:border-purple-500 outline-none">
-                </div>
-                <button type="submit" class="w-full bg-purple-600 py-3 rounded-lg font-bold hover:bg-purple-700 transition">Entrar</button>
+            <h2 class="text-2xl font-bold mb-6 text-center">Acesso Restrito</h2>
+            <form id="login-form" class="flex flex-col gap-4">
+                <input type="text" id="username" placeholder="Usuário" class="p-3 rounded-lg bg-black/50 border border-white/10" required>
+                <input type="password" id="password" placeholder="Senha" class="p-3 rounded-lg bg-black/50 border border-white/10" required>
+                <button type="submit" class="bg-blue-600 py-3 rounded-lg font-bold">Entrar</button>
+                <p id="login-error" class="text-red-500 text-sm hidden text-center"></p>
             </form>
         </div>
     </div>
 
-    <div id="page-admin" class="page hidden pt-24 pb-32">
-        <div class="container mx-auto px-4">
-            <div class="flex justify-between items-center mb-10">
-                <h2 class="text-3xl font-bold">⚙️ Painel Admin</h2>
-                <button id="btn-logout" class="bg-red-500/10 text-red-500 px-4 py-2 rounded-lg hover:bg-red-500 transition">Sair</button>
-            </div>
-            
-            <div class="grid lg:grid-cols-2 gap-10">
-                <div class="bg-white/5 p-6 rounded-2xl border border-white/10">
-                    <h3 class="text-xl font-bold mb-6">Adicionar Música</h3>
-                    <form id="admin-form" class="space-y-4">
-                        <input type="text" id="music-name" placeholder="Nome da Música" class="w-full p-3 bg-black rounded-lg border border-white/10" required>
-                        <input type="text" id="artist-name" placeholder="Artista" class="w-full p-3 bg-black rounded-lg border border-white/10" required>
-                        
-                        <div class="border-2 border-dashed border-white/10 p-10 rounded-xl text-center cursor-pointer hover:border-purple-500 transition" id="audio-upload-area">
-                            <input type="file" id="audio-file" accept="audio/*" class="hidden">
-                            <p id="audio-placeholder" class="text-gray-500">Clique para subir o Áudio (MP3)</p>
-                        </div>
-
-                        <div class="border-2 border-dashed border-white/10 p-10 rounded-xl text-center cursor-pointer hover:border-purple-500 transition" id="cover-upload-area">
-                            <input type="file" id="cover-file" accept="image/*" class="hidden">
-                            <img id="cover-preview-img" class="hidden w-20 h-20 mx-auto mb-2 object-cover rounded shadow-lg">
-                            <p id="cover-placeholder" class="text-gray-500">Clique para subir a Capa</p>
-                        </div>
-
-                        <button type="submit" class="w-full bg-white text-black py-3 rounded-lg font-bold">Salvar Música</button>
-                    </form>
-                </div>
-
-                <div>
-                    <h3 class="text-xl font-bold mb-6">Músicas Cadastradas</h3>
-                    <div id="admin-music-list" class="space-y-2"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="player fixed bottom-0 w-full bg-black/90 backdrop-blur-xl border-t border-white/10 p-4 z-[100]">
+    <div id="player-bar" class="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/10 p-4 z-50">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-4">
             <div class="flex items-center gap-4 w-full md:w-1/3">
                 <img id="player-cover" src="https://placehold.co/300" class="w-12 h-12 rounded-lg object-cover">
                 <div class="truncate">
-                    <div id="player-title" class="font-bold text-sm truncate">Selecione uma música</div>
-                    <div id="player-artist" class="text-xs text-gray-500 truncate">Mazzoni Music</div>
+                    <div id="player-title" class="font-bold text-sm truncate text-white">Selecione uma música</div>
+                    <div id="player-artist" class="text-xs text-gray-500 truncate">Artista</div>
                 </div>
             </div>
-
-            <div class="flex flex-col items-center w-full md:w-1/3 gap-2">
+            <div class="flex flex-col items-center gap-2 w-full md:w-1/3">
                 <div class="flex items-center gap-6">
-                    <button id="btn-prev" class="text-gray-400 hover:text-white"><i class="fas fa-backward"></i></button>
-                    <button id="btn-play-pause" class="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 transition">
-                        <i class="fas fa-play"></i>
-                    </button>
-                    <button id="btn-next" class="text-gray-400 hover:text-white"><i class="fas fa-forward"></i></button>
+                    <button id="btn-prev" class="text-xl"><i class="fas fa-step-backward"></i></button>
+                    <button id="btn-play-pause" class="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center"><i class="fas fa-play"></i></button>
+                    <button id="btn-next" class="text-xl"><i class="fas fa-step-forward"></i></button>
                 </div>
-                <div class="flex items-center gap-2 w-full text-[10px] text-gray-500">
+                <div class="flex items-center gap-2 w-full text-[10px]">
                     <span id="current-time">0:00</span>
-                    <div id="progress-bar" class="flex-1 h-1 bg-white/10 rounded-full cursor-pointer overflow-hidden">
-                        <div id="progress-fill" class="h-full bg-white w-0"></div>
+                    <div id="progress-bar" class="flex-1 h-1 bg-white/20 rounded-full cursor-pointer overflow-hidden">
+                        <div id="progress-fill" class="h-full bg-blue-500 w-0"></div>
                     </div>
                     <span id="duration-time">0:00</span>
                 </div>
+            </div>
+            <div class="hidden md:block w-1/3 text-right">
+                <button id="btn-logout" class="text-xs text-gray-500 hover:text-red-500">Sair</button>
             </div>
         </div>
     </div>

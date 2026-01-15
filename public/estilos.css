@@ -16,6 +16,7 @@
       padding-bottom: 120px;
       position: relative;
       overflow-x: hidden;
+      padding-bottom: 100px;
     }
 
     body::before {
@@ -1885,3 +1886,12 @@
       font-size: 15px;
       font-weight: 500;
     }
+
+    .music-grid, .music-grid-modern {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px;
+    padding: 20px 0;
+}
+
+/* Garante que o conteúdo não fique escondido atrás do player fixo no rodapé */
