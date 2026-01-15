@@ -33,6 +33,7 @@ const DOM = {
     playerTitle: document.getElementById('player-title'),
     playerArtist: document.getElementById('player-artist'),
     playerCover: document.getElementById('player-cover'),
+    volumeSlider: document.getElementById('volume-slider'), // Novo controle de volume
 
     // Listas
     homeGrid: document.getElementById('home-music-grid'),
@@ -56,9 +57,17 @@ const fileToBase64 = (file) => new Promise((resolve, reject) => {
     reader.onerror = error => reject(error);
 });
 
+// --- CORREÇÃO PRINCIPAL DO ERRO 414 ---
 function formatUrl(path) {
     if (!path) return 'https://via.placeholder.com/300?text=Sem+Capa';
+    
+    // Se for Base64 (data:image...) ou blob, retorna como está
+    if (path.startsWith('data:') || path.startsWith('blob:')) return path;
+    
+    // Se for link externo (http...), retorna como está
     if (path.startsWith('http')) return path;
+    
+    // Se for caminho relativo, adiciona o backend
     return `${API_URL}${path.startsWith('/') ? path : '/' + path}`;
 }
 
@@ -82,11 +91,9 @@ const Auth = {
                 const btn = DOM.loginForm.querySelector('button');
 
                 try {
-                    // Feedback visual
                     btn.disabled = true;
                     btn.textContent = "Verificando...";
 
-                    // 1. REQUISIÇÃO REAL AO SERVIDOR
                     const res = await fetch(`${API_URL}/login`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -96,7 +103,6 @@ const Auth = {
                     const data = await res.json();
 
                     if (res.ok) {
-                        // 2. SALVAR O TOKEN SEGURO
                         localStorage.setItem('mz_token', data.token);
                         alert("Login realizado com sucesso!");
                         Navigation.goTo('admin');
@@ -116,13 +122,11 @@ const Auth = {
         const btnLogout = document.getElementById('btn-logout');
         if(btnLogout) {
             btnLogout.addEventListener('click', () => {
-                // REMOVE O TOKEN AO SAIR
                 localStorage.removeItem('mz_token');
                 Navigation.goTo('home');
             });
         }
     },
-    // Verifica se existe um token salvo
     isLogged: () => !!localStorage.getItem('mz_token')
 };
 
@@ -148,7 +152,6 @@ const Navigation = {
     },
 
     goTo(pageId) {
-        // Proteção de Rota
         if (pageId === 'admin' && !Auth.isLogged()) {
             alert("Faça login primeiro.");
             pageId = 'login';
@@ -164,18 +167,25 @@ const Navigation = {
 };
 
 /* =========================================
-   6. PLAYER DE MÚSICA
+   6. PLAYER DE MÚSICA (CORRIGIDO)
    ========================================= */
 const Player = {
     init() {
         if(!DOM.audioPlayer) return;
 
-        // Controles
+        // Controles Básicos
         DOM.btnPlayPause.addEventListener('click', () => this.toggle());
         DOM.btnNext.addEventListener('click', () => this.next());
         DOM.btnPrev.addEventListener('click', () => this.prev());
 
-        // Eventos do Audio
+        // Controle de Volume (Novo)
+        if (DOM.volumeSlider) {
+            DOM.volumeSlider.addEventListener('input', (e) => {
+                DOM.audioPlayer.volume = e.target.value;
+            });
+        }
+
+        // Atualização de Tempo e Barra
         DOM.audioPlayer.addEventListener('timeupdate', () => {
             const cur = DOM.audioPlayer.currentTime;
             const dur = DOM.audioPlayer.duration;
@@ -186,55 +196,74 @@ const Player = {
             }
         });
 
+        // Quando a música acaba, toca a próxima
         DOM.audioPlayer.addEventListener('ended', () => this.next());
         
-        // Clique na barra de progresso
+        // Clique na barra de progresso (Seek)
         DOM.progressBar.addEventListener('click', (e) => {
             const width = DOM.progressBar.clientWidth;
             const clickX = e.offsetX;
             const duration = DOM.audioPlayer.duration;
-            DOM.audioPlayer.currentTime = (clickX / width) * duration;
+            if (duration) {
+                DOM.audioPlayer.currentTime = (clickX / width) * duration;
+            }
         });
     },
 
     load(index) {
         if(AppState.playlist.length === 0) return;
+        
+        // Garante que o índice é válido
+        if (index < 0) index = AppState.playlist.length - 1;
+        if (index >= AppState.playlist.length) index = 0;
+
         AppState.currentMusicIndex = index;
         const music = AppState.playlist[index];
 
+        // Atualiza Interface
         DOM.playerTitle.textContent = music.nome;
         DOM.playerArtist.textContent = music.artista;
+        
+        // Usa a função corrigida para evitar erro 414
         DOM.playerCover.src = formatUrl(music.capa_url);
         DOM.audioPlayer.src = formatUrl(music.audio_url);
 
+        // Feedback Visual (Ativar classe active na lista se necessário)
         this.play();
+
+        // Rolar suavemente até o player (Opcional, bom para mobile)
+        // document.getElementById('player-container')?.scrollIntoView({ behavior: 'smooth' });
     },
 
     play() {
         DOM.audioPlayer.play().then(() => {
             AppState.isPlaying = true;
-            DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>';
-        }).catch(err => console.log("Autoplay bloqueado pelo navegador"));
+            DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>'; // Ícone Pause
+        }).catch(err => {
+            console.log("Autoplay bloqueado ou erro de carregamento:", err);
+            AppState.isPlaying = false;
+            DOM.btnPlayPause.innerHTML = '<i class="fas fa-play"></i>';
+        });
     },
 
     toggle() {
-        if(DOM.audioPlayer.paused) this.play();
-        else {
+        if(DOM.audioPlayer.paused) {
+            this.play();
+        } else {
             DOM.audioPlayer.pause();
-            DOM.btnPlayPause.innerHTML = '<i class="fas fa-play"></i>';
+            AppState.isPlaying = false;
+            DOM.btnPlayPause.innerHTML = '<i class="fas fa-play"></i>'; // Ícone Play
         }
     },
 
     next() {
-        let idx = AppState.currentMusicIndex + 1;
-        if(idx >= AppState.playlist.length) idx = 0;
-        this.load(idx);
+        if(AppState.playlist.length === 0) return;
+        this.load(AppState.currentMusicIndex + 1);
     },
 
     prev() {
-        let idx = AppState.currentMusicIndex - 1;
-        if(idx < 0) idx = AppState.playlist.length - 1;
-        this.load(idx);
+        if(AppState.playlist.length === 0) return;
+        this.load(AppState.currentMusicIndex - 1);
     }
 };
 
@@ -245,21 +274,24 @@ const Data = {
     async load() {
         try {
             const res = await fetch(`${API_URL}/musicas`);
+            if (!res.ok) throw new Error("Falha ao buscar músicas");
+            
             const data = await res.json();
-            AppState.playlist = data.reverse(); // Mais recentes primeiro
+            AppState.playlist = data.reverse(); 
             this.render();
         } catch (e) {
             console.error("Erro ao carregar musicas", e);
+            // Fallback se a API falhar (Opcional)
+            if(DOM.musicasGrid) DOM.musicasGrid.innerHTML = '<p class="text-white text-center">Erro ao carregar músicas.</p>';
         }
     },
 
     render() {
-        // Home
         if(DOM.homeGrid) {
-            DOM.homeGrid.innerHTML = AppState.playlist.slice(0, 8).map((m, i) => this.card(m)).join('');
+            DOM.homeGrid.innerHTML = AppState.playlist.slice(0, 8).map((m) => this.card(m)).join('');
         }
-        // Todas as Músicas (com busca)
         this.filter();
+        this.attachEvents(); // Importante: Reconectar eventos após renderizar
     },
 
     filter() {
@@ -270,22 +302,15 @@ const Data = {
         );
         
         DOM.musicasGrid.innerHTML = filtered.map(m => this.card(m)).join('');
-        
-        // Adiciona evento de clique nos cards gerados
-        document.querySelectorAll('.music-card-click').forEach(card => {
-            card.addEventListener('click', () => {
-                const id = card.getAttribute('data-id');
-                const idx = AppState.playlist.findIndex(m => String(m.id) === id);
-                if(idx !== -1) Player.load(idx);
-            });
-        });
+        this.attachEvents(); // Reconecta eventos na lista filtrada
     },
 
     card(m) {
+        // Usa formatUrl aqui também para evitar imagens quebradas na lista
         return `
         <div class="music-card-click music-card-modern bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300 relative group" data-id="${m.id}">
             <div class="relative w-full aspect-square">
-                <img src="${formatUrl(m.capa_url)}" class="w-full h-full object-cover">
+                <img src="${formatUrl(m.capa_url)}" class="w-full h-full object-cover" loading="lazy">
                 <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                     <i class="fas fa-play text-white text-3xl"></i>
                 </div>
@@ -295,12 +320,22 @@ const Data = {
                 <p class="text-gray-400 text-sm truncate">${m.artista}</p>
             </div>
         </div>`;
+    },
+
+    attachEvents() {
+        document.querySelectorAll('.music-card-click').forEach(card => {
+            // Remove listener anterior para evitar duplicidade (boa prática simples)
+            card.onclick = () => {
+                const id = card.getAttribute('data-id');
+                const idx = AppState.playlist.findIndex(m => String(m.id) === String(id));
+                if(idx !== -1) Player.load(idx);
+            };
+        });
     }
 };
 
-
 /* =========================================
-   8. ADMIN (ATUALIZADO COM TOKEN)
+   8. ADMIN (ATUALIZADO)
    ========================================= */
 const Admin = {
     audioFile: null,
@@ -336,7 +371,6 @@ const Admin = {
         `).join('');
     },
 
-    // DELETE SEGURO 🔒
     async deleteMusic(id) {
         if (!confirm("Tem certeza que deseja apagar esta música?")) return;
         
@@ -351,15 +385,13 @@ const Admin = {
             document.body.style.cursor = 'wait';
             const res = await fetch(`${API_URL}/musicas/${id}`, { 
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}` // ENVIA O TOKEN
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
             
             if (res.ok) {
                 alert("Música removida!");
-                await Data.load();
-                this.renderList();
+                await Data.load(); // Recarrega os dados
+                this.renderList(); // Atualiza a lista visual
             } else {
                 const data = await res.json();
                 alert("Erro ao deletar: " + (data.error || "Desconhecido"));
@@ -374,7 +406,6 @@ const Admin = {
 
     setupClicks() {
         const adminForm = document.getElementById('admin-form');
-        
         if (adminForm) {
             adminForm.onsubmit = (e) => {
                 e.preventDefault(); 
@@ -382,78 +413,62 @@ const Admin = {
             };
         }
 
-        // --- ÁUDIO ---
-        const audioArea = document.getElementById('audio-upload-area');
-        const audioInput = document.getElementById('audio-file');
-        const audioUrlInput = document.getElementById('audio-url');
-        
-        if (audioArea && audioInput) {
-            audioArea.onclick = (e) => {
-                if(e.target.id === 'remove-audio') return; 
-                audioInput.click();
-            };
-            audioInput.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    if (file.size > 5 * 1024 * 1024) {
-                        alert("⚠️ Arquivo muito grande (Acima de 5MB)!\nIsso pode travar o navegador.\nRecomendamos usar a opção de URL (Link).");
-                    }
-                    this.audioFile = file;
-                    document.getElementById('audio-filename').textContent = file.name;
-                    document.getElementById('audio-size').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-                    document.getElementById('audio-placeholder').classList.add('hidden');
-                    document.getElementById('audio-preview').classList.remove('hidden');
-                    if(audioUrlInput) audioUrlInput.value = '';
-                }
-            };
-            const btnRemove = document.getElementById('remove-audio');
-            if(btnRemove) {
-                btnRemove.onclick = (e) => {
-                    e.stopPropagation();
-                    this.audioFile = null;
-                    audioInput.value = '';
-                    document.getElementById('audio-preview').classList.add('hidden');
-                    document.getElementById('audio-placeholder').classList.remove('hidden');
-                };
-            }
-        }
+        // --- MANIPULAÇÃO DE ARQUIVOS (ÁUDIO E CAPA) ---
+        // Mantive a lógica original pois estava correta para inputs de arquivo
+        this.setupFileInput('audio-upload-area', 'audio-file', 'audio-preview', 'audio-placeholder', 'audio-filename', 'audio-size', 'remove-audio', 'audio-url', 'audio');
+        this.setupFileInput('cover-upload-area', 'cover-file', 'cover-preview', 'cover-placeholder', null, null, 'remove-cover', 'cover-url', 'cover');
+    },
 
-        // --- CAPA ---
-        const coverArea = document.getElementById('cover-upload-area');
-        const coverInput = document.getElementById('cover-file');
-        const coverUrlInput = document.getElementById('cover-url');
-        
-        if (coverArea && coverInput) {
-            coverArea.onclick = (e) => {
-                if(e.target.id === 'remove-cover') return;
-                coverInput.click();
-            };
-            coverInput.onchange = (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    this.coverFile = file;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => document.getElementById('cover-preview-img').src = ev.target.result;
-                    reader.readAsDataURL(file);
-                    document.getElementById('cover-placeholder').classList.add('hidden');
-                    document.getElementById('cover-preview').classList.remove('hidden');
-                    if(coverUrlInput) coverUrlInput.value = '';
+    setupFileInput(areaId, inputId, previewId, placeholderId, nameId, sizeId, removeBtnId, urlInputId, type) {
+        const area = document.getElementById(areaId);
+        const input = document.getElementById(inputId);
+        const urlInput = document.getElementById(urlInputId);
+
+        if (!area || !input) return;
+
+        area.onclick = (e) => {
+            if(e.target.id === removeBtnId) return; 
+            input.click();
+        };
+
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("⚠️ Arquivo muito grande! Isso pode causar lentidão.\nPrefira usar Links (URL) para arquivos acima de 5MB.");
                 }
-            };
-            const btnRemoveCover = document.getElementById('remove-cover');
-            if(btnRemoveCover) {
-                btnRemoveCover.onclick = (e) => {
-                    e.stopPropagation();
-                    this.coverFile = null;
-                    coverInput.value = '';
-                    document.getElementById('cover-preview').classList.add('hidden');
-                    document.getElementById('cover-placeholder').classList.remove('hidden');
-                };
+
+                if(type === 'audio') this.audioFile = file;
+                if(type === 'cover') this.coverFile = file;
+
+                if(nameId) document.getElementById(nameId).textContent = file.name;
+                if(sizeId) document.getElementById(sizeId).textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+                
+                if(type === 'cover') {
+                     const reader = new FileReader();
+                     reader.onload = (ev) => document.getElementById('cover-preview-img').src = ev.target.result;
+                     reader.readAsDataURL(file);
+                }
+
+                document.getElementById(placeholderId).classList.add('hidden');
+                document.getElementById(previewId).classList.remove('hidden');
+                if(urlInput) urlInput.value = '';
             }
+        };
+
+        const btnRemove = document.getElementById(removeBtnId);
+        if(btnRemove) {
+            btnRemove.onclick = (e) => {
+                e.stopPropagation();
+                if(type === 'audio') this.audioFile = null;
+                if(type === 'cover') this.coverFile = null;
+                input.value = '';
+                document.getElementById(previewId).classList.add('hidden');
+                document.getElementById(placeholderId).classList.remove('hidden');
+            };
         }
     },
 
-    // SAVE SEGURO 🔒
     async save() {
         const btn = document.getElementById('btn-save');
         if(!btn) return;
@@ -472,7 +487,7 @@ const Admin = {
         const coverUrlVal = document.getElementById('cover-url') ? document.getElementById('cover-url').value : '';
 
         if (!name || !artist || (!this.audioFile && !audioUrlVal)) {
-            alert("Preencha Nome, Artista e Áudio (Arquivo ou URL).");
+            alert("Preencha Nome, Artista e Áudio.");
             return;
         }
 
@@ -480,23 +495,11 @@ const Admin = {
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> Processando...';
 
-            // 1. Conversão (Arquivos -> Base64)
-            let finalAudio = '';
-            if (this.audioFile) {
-                finalAudio = await fileToBase64(this.audioFile);
-            } else {
-                finalAudio = audioUrlVal;
-            }
+            let finalAudio = audioUrlVal;
+            if (this.audioFile) finalAudio = await fileToBase64(this.audioFile);
 
-            let finalCover = '';
-            if (this.coverFile) {
-                finalCover = await fileToBase64(this.coverFile);
-            } else {
-                finalCover = coverUrlVal;
-            }
-
-            // 2. Envio Seguro (Com Token)
-            btn.innerHTML = '<i class="fas fa-cloud-upload-alt fa-spin"></i> Enviando...';
+            let finalCover = coverUrlVal;
+            if (this.coverFile) finalCover = await fileToBase64(this.coverFile);
 
             const payload = {
                 nome: name,
@@ -509,24 +512,25 @@ const Admin = {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}` // ENVIA O TOKEN
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(payload)
             });
 
             if (res.ok) {
-                alert("✅ Sucesso! Música adicionada.");
+                alert("✅ Música adicionada com sucesso!");
                 document.getElementById('admin-form').reset();
                 this.audioFile = null;
                 this.coverFile = null;
                 
-                // Reset Visual
+                // Reset Visual dos Uploads
                 document.getElementById('audio-preview').classList.add('hidden');
                 document.getElementById('audio-placeholder').classList.remove('hidden');
                 document.getElementById('cover-preview').classList.add('hidden');
                 document.getElementById('cover-placeholder').classList.remove('hidden');
                 
-                Data.load();
+                await Data.load();
+                this.renderList();
             } else {
                 const errorData = await res.json();
                 throw new Error(errorData.error || "Erro no servidor");
@@ -534,7 +538,12 @@ const Admin = {
 
         } catch (error) {
             console.error(error);
-            alert("ERRO: " + error.message);
+            // Mensagem de erro amigável para payload muito grande
+            if (error.message.includes("413") || error.message.includes("Payload Too Large")) {
+                alert("ERRO: O arquivo é muito pesado para enviar direto.\nTente usar um link (URL) ou um arquivo menor.");
+            } else {
+                alert("ERRO: " + error.message);
+            }
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
