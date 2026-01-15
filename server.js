@@ -12,8 +12,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'segredo_super_secreto';
 
 // Configurações
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Permite arquivos grandes
+app.use(express.json({ limit: '50mb' })); 
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
+// SERVIR ARQUIVOS DO FRONTEND (Se você tiver a pasta 'public')
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Conexão Banco de Dados
 const pool = new Pool({
@@ -25,10 +28,10 @@ pool.connect()
   .then(() => console.log('✅ Banco conectado'))
   .catch(err => console.error('❌ Erro banco:', err.message));
 
-// --- MIDDLEWARE DE SEGURANÇA (O Porteiro) ---
+// --- MIDDLEWARE DE SEGURANÇA ---
 const autenticar = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(' ')[1]; // Pega o token depois do "Bearer"
+  const token = authHeader && authHeader.split(' ')[1]; 
 
   if (!token) return res.status(401).json({ error: 'Acesso negado. Faça login.' });
 
@@ -41,10 +44,27 @@ const autenticar = (req, res, next) => {
 
 // --- ROTAS ---
 
-// 1. ROTA ESPECIAL PARA CRIAR SEU USUÁRIO (Rode uma vez e apague depois se quiser)
+// ROTA DA PÁGINA INICIAL (CORREÇÃO DO ERRO 404)
+app.get('/', (req, res) => {
+    // Tenta enviar o index.html se ele existir na raiz ou pasta public
+    res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+        if (err) {
+            // Se não tiver index.html, mostra mensagem de API Online
+            res.send(`
+                <div style="font-family: sans-serif; text-align: center; padding: 50px;">
+                    <h1>🎵 Backend Mazzoni Music Online! 🚀</h1>
+                    <p>O servidor está funcionando.</p>
+                    <p>Se você queria ver o site, certifique-se de que o arquivo <b>index.html</b> está na pasta <b>public</b>.</p>
+                    <br>
+                    <a href="/setup-admin">Criar Admin</a> | <a href="/musicas">Ver Músicas (JSON)</a>
+                </div>
+            `);
+        }
+    });
+});
+
 app.get('/setup-admin', async (req, res) => {
     try {
-        // Cria a tabela se não existir
         await pool.query(`
             CREATE TABLE IF NOT EXISTS usuarios (
                 id SERIAL PRIMARY KEY,
@@ -52,24 +72,18 @@ app.get('/setup-admin', async (req, res) => {
                 senha_hash TEXT NOT NULL
             );
         `);
-        
-        // Cria o usuário admin (Senha: mazzoni2026)
         const senhaForte = await bcrypt.hash('mazzoni2026', 10);
-        
-        // Tenta inserir (se já existir, ignora)
         await pool.query(`
             INSERT INTO usuarios (login, senha_hash) 
             VALUES ('admin', $1) 
             ON CONFLICT (login) DO NOTHING
         `, [senhaForte]);
-
-        res.send("✅ Usuário 'admin' com senha 'mazzoni2026' criado/verificado com sucesso!");
+        res.send("✅ Usuário 'admin' criado com sucesso!");
     } catch (e) {
         res.status(500).send("Erro no setup: " + e.message);
     }
 });
 
-// 2. LOGIN (Gera o Token)
 app.post('/login', async (req, res) => {
   try {
     const { usuario, senha } = req.body;
@@ -79,7 +93,6 @@ app.post('/login', async (req, res) => {
 
     const user = result.rows[0];
     if (await bcrypt.compare(senha, user.senha_hash)) {
-        // Senha correta: Gerar Token
         const token = jwt.sign({ id: user.id, login: user.login }, JWT_SECRET, { expiresIn: '8h' });
         res.json({ token });
     } else {
@@ -90,7 +103,6 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// 3. LISTAR (Público)
 app.get('/musicas', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM musicas ORDER BY criado_em DESC');
@@ -100,7 +112,6 @@ app.get('/musicas', async (req, res) => {
   }
 });
 
-// 4. SALVAR (Protegido 🔒)
 app.post('/musicas', autenticar, async (req, res) => {
   try {
     const { nome, artista, audio_url, capa_url } = req.body;
@@ -118,7 +129,6 @@ app.post('/musicas', autenticar, async (req, res) => {
   }
 });
 
-// 5. DELETAR (Protegido 🔒)
 app.delete('/musicas/:id', autenticar, async (req, res) => {
   try {
     await pool.query('DELETE FROM musicas WHERE id = $1', [req.params.id]);
