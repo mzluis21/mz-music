@@ -1,239 +1,520 @@
 /* =========================================
-   CONFIGURAÇÃO E ESTADO GLOBAL
+   1. CONFIGURAÇÃO GLOBAL
    ========================================= */
 const API_URL = 'https://mz-music-backend.onrender.com';
 
 const AppState = {
     playlist: [],
     currentMusicIndex: 0,
-    isPlaying: false
+    isPlaying: false,
+    audioFile: null,
+    coverFile: null
 };
 
 /* =========================================
-   SELEÇÃO DE ELEMENTOS DO DOM
+   2. ELEMENTOS DO DOM (INTERFACE)
    ========================================= */
 const DOM = {
-    // Navegação e Páginas
+    // Menus
     menuToggle: document.getElementById('menu-toggle'),
     mobileMenu: document.getElementById('mobile-menu'),
-    menuIcon: document.querySelector('#menu-toggle i'),
     navLinks: document.querySelectorAll('[data-page]'),
     pages: document.querySelectorAll('.page'),
 
     // Player
     audioPlayer: document.getElementById('audio-player'),
     btnPlayPause: document.getElementById('btn-play-pause'),
+    btnPrev: document.getElementById('btn-prev'),
+    btnNext: document.getElementById('btn-next'),
+    progressBar: document.getElementById('progress-bar'),
     progressFill: document.getElementById('progress-fill'),
-    playerCover: document.getElementById('player-cover'),
+    currentTime: document.getElementById('current-time'),
+    durationTime: document.getElementById('duration-time'),
     playerTitle: document.getElementById('player-title'),
     playerArtist: document.getElementById('player-artist'),
+    playerCover: document.getElementById('player-cover'),
 
-    // Grids e Listas
+    // Listas
     homeGrid: document.getElementById('home-music-grid'),
-    adminList: document.getElementById('admin-music-list'),
+    musicasGrid: document.getElementById('musicas-grid'),
+    searchInput: document.getElementById('search-input'),
     
-    // Login e Admin
+    // Admin
     loginForm: document.getElementById('login-form'),
-    loginError: document.getElementById('login-error'),
-    btnLogout: document.getElementById('btn-logout')
+    adminForm: document.getElementById('admin-form'),
+    adminList: document.getElementById('admin-music-list')
 };
 
 /* =========================================
-   SISTEMA DE SEGURANÇA (LOGIN RÍGIDO)
+   3. FUNÇÕES AUXILIARES
+   ========================================= */
+// Converte arquivo para Base64 (Texto)
+const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+});
+
+function formatUrl(path) {
+    if (!path) return 'https://via.placeholder.com/300?text=Sem+Capa';
+    if (path.startsWith('http')) return path;
+    return `${API_URL}${path.startsWith('/') ? path : '/' + path}`;
+}
+
+function formatTime(s) {
+    if (isNaN(s)) return "0:00";
+    const min = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+/* =========================================
+   4. SISTEMA DE LOGIN
    ========================================= */
 const Auth = {
     init() {
         if (DOM.loginForm) {
-            DOM.loginForm.onsubmit = (e) => {
+            DOM.loginForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                
-                const userField = document.getElementById('username');
-                const passField = document.getElementById('password');
+                const u = document.getElementById('username').value;
+                const p = document.getElementById('password').value;
 
-                const user = userField.value.trim().toLowerCase();
-                const pass = passField.value.trim();
-
-                // SENHA ATUALIZADA: mazzoni2026
-                if (user === 'admin' && pass === 'mazzoni2026') {
-                    localStorage.setItem('mz_admin_token', 'autenticado_com_sucesso');
-                    DOM.loginError.classList.add('hidden');
-                    
-                    userField.value = '';
-                    passField.value = '';
-
-                    // Navega para o Admin após validar
+                if (u === 'admin' && p === 'mazzoni2026') {
+                    localStorage.setItem('mz_auth', 'true');
                     Navigation.goTo('admin');
                 } else {
-                    localStorage.removeItem('mz_admin_token');
-                    DOM.loginError.classList.remove('hidden');
-                    alert("Acesso negado: Somente o administrador pode acessar.");
+                    alert("Senha incorreta!");
                 }
-            };
+            });
         }
-
-        if (DOM.btnLogout) {
-            DOM.btnLogout.onclick = () => {
-                localStorage.removeItem('mz_admin_token');
+        
+        const btnLogout = document.getElementById('btn-logout');
+        if(btnLogout) {
+            btnLogout.addEventListener('click', () => {
+                localStorage.removeItem('mz_auth');
                 Navigation.goTo('home');
-            };
+            });
         }
     },
-
-    isLoggedIn() {
-        return localStorage.getItem('mz_admin_token') === 'autenticado_com_sucesso';
-    }
+    isLogged: () => localStorage.getItem('mz_auth') === 'true'
 };
 
 /* =========================================
-   NAVEGAÇÃO COM BLOQUEIO DE SEGURANÇA
+   5. NAVEGAÇÃO
    ========================================= */
 const Navigation = {
     init() {
-        // Menu Hamburguer
-        if (DOM.menuToggle) {
-            DOM.menuToggle.onclick = (e) => {
-                e.stopPropagation();
+        if(DOM.menuToggle) {
+            DOM.menuToggle.addEventListener('click', () => {
                 DOM.mobileMenu.classList.toggle('active');
-                this.updateMenuIcon();
-            };
+            });
         }
 
-        // Cliques nos links (Home, Músicas, Admin)
         DOM.navLinks.forEach(link => {
-            link.onclick = (e) => {
+            link.addEventListener('click', (e) => {
                 e.preventDefault();
-                const pageId = link.getAttribute('data-page');
-                this.goTo(pageId);
-                DOM.mobileMenu?.classList.remove('active');
-                this.updateMenuIcon();
-            };
+                const page = link.getAttribute('data-page');
+                this.goTo(page);
+                if(DOM.mobileMenu) DOM.mobileMenu.classList.remove('active');
+            });
         });
     },
 
-    updateMenuIcon() {
-        if (DOM.menuIcon && DOM.mobileMenu) {
-            DOM.menuIcon.className = DOM.mobileMenu.classList.contains('active') ? 'fas fa-times' : 'fas fa-bars';
-        }
-    },
-
     goTo(pageId) {
-        // BLOQUEIO CRÍTICO: Se tentar ir para 'admin' sem estar logado, ele te joga pro 'login'
-        if (pageId === 'admin' && !Auth.isLoggedIn()) {
-            console.warn("Tentativa de acesso não autorizado bloqueada.");
-            pageId = 'login';
-        }
-
-        // Esconde todas as páginas e mostra a escolhida
+        if (pageId === 'admin' && !Auth.isLogged()) pageId = 'login';
+        
         DOM.pages.forEach(p => p.classList.add('hidden'));
         const target = document.getElementById(`page-${pageId}`);
-        if (target) {
-            target.classList.remove('hidden');
-            window.scrollTo(0, 0);
-        }
-
-        // Se entrou no admin legalmente, carrega a lista de gerenciamento
+        if(target) target.classList.remove('hidden');
+        
         if (pageId === 'admin') Admin.renderList();
+        window.scrollTo(0,0);
     }
 };
 
 /* =========================================
-   RECURSOS DO PLAYER E DADOS
+   6. PLAYER DE MÚSICA
    ========================================= */
-function formatUrl(path) {
-    if (!path) return 'https://via.placeholder.com/300?text=Sem+Capa';
-    if (path.startsWith('http') || path.startsWith('data:')) return path;
-    const cleanPath = path.replace(/^\/+/, '');
-    return `${API_URL}/${cleanPath}`;
-}
-
 const Player = {
     init() {
-        if (!DOM.audioPlayer) return;
-        DOM.btnPlayPause.onclick = () => this.toggle();
-        DOM.audioPlayer.ontimeupdate = () => {
-            const pct = (DOM.audioPlayer.currentTime / DOM.audioPlayer.duration) * 100;
-            if (DOM.progressFill) DOM.progressFill.style.width = `${pct}%`;
-        };
+        if(!DOM.audioPlayer) return;
+
+        // Controles
+        DOM.btnPlayPause.addEventListener('click', () => this.toggle());
+        DOM.btnNext.addEventListener('click', () => this.next());
+        DOM.btnPrev.addEventListener('click', () => this.prev());
+
+        // Eventos do Audio
+        DOM.audioPlayer.addEventListener('timeupdate', () => {
+            const cur = DOM.audioPlayer.currentTime;
+            const dur = DOM.audioPlayer.duration;
+            if(dur) {
+                DOM.progressFill.style.width = `${(cur/dur)*100}%`;
+                DOM.currentTime.textContent = formatTime(cur);
+                DOM.durationTime.textContent = formatTime(dur);
+            }
+        });
+
+        DOM.audioPlayer.addEventListener('ended', () => this.next());
+        
+        // Clique na barra de progresso
+        DOM.progressBar.addEventListener('click', (e) => {
+            const width = DOM.progressBar.clientWidth;
+            const clickX = e.offsetX;
+            const duration = DOM.audioPlayer.duration;
+            DOM.audioPlayer.currentTime = (clickX / width) * duration;
+        });
     },
 
-    loadAndPlay(id) {
-        const music = AppState.playlist.find(m => String(m.id) === String(id));
-        if (!music) return;
-        AppState.currentMusicIndex = AppState.playlist.indexOf(music);
-        DOM.audioPlayer.src = formatUrl(music.audio_url);
+    load(index) {
+        if(AppState.playlist.length === 0) return;
+        AppState.currentMusicIndex = index;
+        const music = AppState.playlist[index];
+
         DOM.playerTitle.textContent = music.nome;
         DOM.playerArtist.textContent = music.artista;
         DOM.playerCover.src = formatUrl(music.capa_url);
-        DOM.audioPlayer.play();
-        DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>';
+        DOM.audioPlayer.src = formatUrl(music.audio_url);
+
+        this.play();
+    },
+
+    play() {
+        DOM.audioPlayer.play().then(() => {
+            AppState.isPlaying = true;
+            DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>';
+        }).catch(err => console.log("Autoplay bloqueado pelo navegador"));
     },
 
     toggle() {
-        if (DOM.audioPlayer.paused) {
-            DOM.audioPlayer.play();
-            DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>';
-        } else {
+        if(DOM.audioPlayer.paused) this.play();
+        else {
             DOM.audioPlayer.pause();
             DOM.btnPlayPause.innerHTML = '<i class="fas fa-play"></i>';
         }
+    },
+
+    next() {
+        let idx = AppState.currentMusicIndex + 1;
+        if(idx >= AppState.playlist.length) idx = 0;
+        this.load(idx);
+    },
+
+    prev() {
+        let idx = AppState.currentMusicIndex - 1;
+        if(idx < 0) idx = AppState.playlist.length - 1;
+        this.load(idx);
     }
 };
 
-const Admin = {
-    renderList() {
-        if (!DOM.adminList) return;
-        DOM.adminList.innerHTML = AppState.playlist.map(m => `
-            <div class="flex items-center justify-between bg-gray-800 p-2 mb-2 rounded border border-gray-700">
-                <div class="flex items-center gap-2">
-                    <img src="${formatUrl(m.capa_url)}" class="w-10 h-10 object-cover rounded">
-                    <span class="text-white text-sm font-medium">${m.nome}</span>
-                </div>
-                <button onclick="deleteMusic('${m.id}')" class="text-red-500 p-2 hover:bg-red-500/10 rounded">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `).join('');
-    }
-};
-
+/* =========================================
+   7. DADOS E LISTAGEM
+   ========================================= */
 const Data = {
     async load() {
         try {
             const res = await fetch(`${API_URL}/musicas`);
-            AppState.playlist = await res.json();
+            const data = await res.json();
+            AppState.playlist = data.reverse();
             this.render();
-        } catch (e) { console.error("Erro API:", e); }
+        } catch (e) {
+            console.error("Erro ao carregar musicas", e);
+        }
     },
 
     render() {
-        if (DOM.homeGrid) {
-            DOM.homeGrid.innerHTML = AppState.playlist.map(m => `
-                <div class="bg-gray-800 p-3 rounded-lg cursor-pointer hover:scale-105 transition" 
-                     onclick="Player.loadAndPlay('${m.id}')">
-                    <img src="${formatUrl(m.capa_url)}" class="w-full aspect-square object-cover rounded-md mb-2">
-                    <div class="text-white font-bold truncate text-sm">${m.nome}</div>
-                    <div class="text-gray-400 text-xs truncate">${m.artista}</div>
-                </div>
-            `).join('');
+        // Home
+        if(DOM.homeGrid) {
+            DOM.homeGrid.innerHTML = AppState.playlist.slice(0, 8).map((m, i) => this.card(m)).join('');
         }
+        // Todas as Músicas (com busca)
+        this.filter();
+    },
+
+    filter() {
+        if(!DOM.musicasGrid) return;
+        const term = DOM.searchInput ? DOM.searchInput.value.toLowerCase() : '';
+        const filtered = AppState.playlist.filter(m => 
+            m.nome.toLowerCase().includes(term) || m.artista.toLowerCase().includes(term)
+        );
+        
+        DOM.musicasGrid.innerHTML = filtered.map(m => this.card(m)).join('');
+        
+        // Adiciona evento de clique nos cards gerados
+        document.querySelectorAll('.music-card-click').forEach(card => {
+            card.addEventListener('click', () => {
+                const id = card.getAttribute('data-id');
+                const idx = AppState.playlist.findIndex(m => String(m.id) === id);
+                if(idx !== -1) Player.load(idx);
+            });
+        });
+    },
+
+    card(m) {
+        return `
+        <div class="music-card-click music-card-modern bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300 relative group" data-id="${m.id}">
+            <div class="relative w-full aspect-square">
+                <img src="${formatUrl(m.capa_url)}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                    <i class="fas fa-play text-white text-3xl"></i>
+                </div>
+            </div>
+            <div class="p-3">
+                <h3 class="text-white font-bold truncate">${m.nome}</h3>
+                <p class="text-gray-400 text-sm truncate">${m.artista}</p>
+            </div>
+        </div>`;
     }
 };
 
+
 /* =========================================
-   INICIALIZAÇÃO FINAL
+   8. ADMIN (CORRIGIDO: COM LOGS DE DEPURAÇÃO)
+   ========================================= */
+const Admin = {
+    audioFile: null,
+    coverFile: null,
+
+    init() {
+        console.log("Admin Painel Iniciado.");
+        this.setupClicks();
+    },
+
+    renderList() {
+        const listContainer = document.getElementById('admin-music-list');
+        if (!listContainer) return;
+
+        if (AppState.playlist.length === 0) {
+            listContainer.innerHTML = '<p class="text-gray-400 text-center py-4">Nenhuma música cadastrada.</p>';
+            return;
+        }
+
+        listContainer.innerHTML = AppState.playlist.map(m => `
+            <div class="flex justify-between items-center bg-gray-700/50 p-3 rounded mb-2 border border-gray-600">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <img src="${formatUrl(m.capa_url)}" class="w-10 h-10 object-cover rounded bg-gray-900">
+                    <div class="min-w-0">
+                        <p class="text-white font-bold text-sm truncate">${m.nome}</p>
+                        <p class="text-gray-400 text-xs truncate">${m.artista}</p>
+                    </div>
+                </div>
+                <button onclick="Admin.deleteMusic('${m.id}')" class="text-red-500 hover:text-red-400 p-2 transition" title="Excluir">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
+    },
+
+    async deleteMusic(id) {
+        if (!confirm("Tem certeza que deseja apagar esta música?")) return;
+        try {
+            document.body.style.cursor = 'wait';
+            const res = await fetch(`${API_URL}/musicas/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                alert("Música removida!");
+                await Data.load();
+                this.renderList();
+            } else {
+                alert("Erro ao deletar.");
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            document.body.style.cursor = 'default';
+        }
+    },
+
+    setupClicks() {
+        const adminForm = document.getElementById('admin-form');
+        
+        // CORREÇÃO: Força o bloqueio do reload da página
+        if (adminForm) {
+            adminForm.onsubmit = (e) => {
+                e.preventDefault(); 
+                console.log("Formulário submetido. Iniciando save()...");
+                this.save();
+            };
+        }
+
+        // --- ÁUDIO ---
+        const audioArea = document.getElementById('audio-upload-area');
+        const audioInput = document.getElementById('audio-file');
+        const audioUrlInput = document.getElementById('audio-url');
+        
+        if (audioArea && audioInput) {
+            audioArea.onclick = (e) => {
+                if(e.target.id === 'remove-audio') return; 
+                audioInput.click();
+            };
+            audioInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    // LIMITE DE SEGURANÇA: 5MB
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert("⚠️ Arquivo muito grande (Acima de 5MB)!\nIsso pode travar o navegador.\nRecomendamos usar a opção de URL (Link) em vez de upload.");
+                    }
+                    this.audioFile = file;
+                    document.getElementById('audio-filename').textContent = file.name;
+                    document.getElementById('audio-size').textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+                    document.getElementById('audio-placeholder').classList.add('hidden');
+                    document.getElementById('audio-preview').classList.remove('hidden');
+                    if(audioUrlInput) audioUrlInput.value = '';
+                }
+            };
+            const btnRemove = document.getElementById('remove-audio');
+            if(btnRemove) {
+                btnRemove.onclick = (e) => {
+                    e.stopPropagation();
+                    this.audioFile = null;
+                    audioInput.value = '';
+                    document.getElementById('audio-preview').classList.add('hidden');
+                    document.getElementById('audio-placeholder').classList.remove('hidden');
+                };
+            }
+        }
+
+        // --- CAPA ---
+        const coverArea = document.getElementById('cover-upload-area');
+        const coverInput = document.getElementById('cover-file');
+        const coverUrlInput = document.getElementById('cover-url');
+        
+        if (coverArea && coverInput) {
+            coverArea.onclick = (e) => {
+                if(e.target.id === 'remove-cover') return;
+                coverInput.click();
+            };
+            coverInput.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.coverFile = file;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => document.getElementById('cover-preview-img').src = ev.target.result;
+                    reader.readAsDataURL(file);
+                    document.getElementById('cover-placeholder').classList.add('hidden');
+                    document.getElementById('cover-preview').classList.remove('hidden');
+                    if(coverUrlInput) coverUrlInput.value = '';
+                }
+            };
+            const btnRemoveCover = document.getElementById('remove-cover');
+            if(btnRemoveCover) {
+                btnRemoveCover.onclick = (e) => {
+                    e.stopPropagation();
+                    this.coverFile = null;
+                    coverInput.value = '';
+                    document.getElementById('cover-preview').classList.add('hidden');
+                    document.getElementById('cover-placeholder').classList.remove('hidden');
+                };
+            }
+        }
+    },
+
+    async save() {
+        console.log("Iniciando função save...");
+        const btn = document.getElementById('btn-save');
+        if(!btn) return;
+
+        const originalText = btn.innerHTML;
+        const name = document.getElementById('music-name').value;
+        const artist = document.getElementById('artist-name').value;
+        const audioUrlVal = document.getElementById('audio-url') ? document.getElementById('audio-url').value : '';
+        const coverUrlVal = document.getElementById('cover-url') ? document.getElementById('cover-url').value : '';
+
+        if (!name || !artist || (!this.audioFile && !audioUrlVal)) {
+            alert("Preencha Nome, Artista e Áudio (Arquivo ou URL).");
+            return;
+        }
+
+        try {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> Processando...';
+            console.log("Botão desativado. Processando arquivos...");
+
+            // 1. Resolve Áudio
+            let finalAudio = '';
+            if (this.audioFile) {
+                console.log("Convertendo áudio para Base64...");
+                // Se a função fileToBase64 não existir, vai dar erro no console aqui
+                finalAudio = await fileToBase64(this.audioFile);
+                console.log("Áudio convertido. Tamanho da string: " + finalAudio.length);
+            } else {
+                console.log("Usando URL de áudio.");
+                finalAudio = audioUrlVal;
+            }
+
+            // 2. Resolve Capa
+            let finalCover = '';
+            if (this.coverFile) {
+                console.log("Convertendo capa...");
+                finalCover = await fileToBase64(this.coverFile);
+            } else {
+                finalCover = coverUrlVal;
+            }
+
+            // 3. Envio
+            btn.innerHTML = '<i class="fas fa-cloud-upload-alt fa-spin"></i> Enviando...';
+            console.log("Enviando requisição fetch para API...");
+
+            const payload = {
+                id: Date.now().toString(),
+                nome: name,
+                artista: artist,
+                audio_url: finalAudio,
+                capa_url: finalCover
+            };
+
+            const res = await fetch(`${API_URL}/musicas`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            console.log("Resposta do servidor recebida:", res.status);
+
+            if (res.ok) {
+                alert("✅ Sucesso! Música adicionada.");
+                document.getElementById('admin-form').reset();
+                this.audioFile = null;
+                this.coverFile = null;
+                
+                // Reset Visual
+                document.getElementById('audio-preview').classList.add('hidden');
+                document.getElementById('audio-placeholder').classList.remove('hidden');
+                document.getElementById('cover-preview').classList.add('hidden');
+                document.getElementById('cover-placeholder').classList.remove('hidden');
+                
+                Data.load();
+            } else {
+                if (res.status === 413) throw new Error("Arquivo muito pesado para o servidor. Use a URL do áudio.");
+                const txt = await res.text();
+                throw new Error(`Erro API: ${res.status} - ${txt}`);
+            }
+
+        } catch (error) {
+            console.error("ERRO NO SAVE:", error);
+            alert("ERRO: " + error.message + "\n(Verifique o Console F12 para detalhes)");
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+};
+/* =========================================
+   9. INICIALIZAÇÃO
    ========================================= */
 document.addEventListener('DOMContentLoaded', () => {
     Navigation.init();
     Auth.init();
     Player.init();
+    Admin.init();
     Data.load();
-});
 
-// Funções Globais
-window.deleteMusic = async (id) => {
-    if (!Auth.isLoggedIn()) return alert("Ação não autorizada.");
-    if (!confirm("Excluir música?")) return;
-    await fetch(`${API_URL}/musicas/${id}`, { method: 'DELETE' });
-    Data.load();
-    setTimeout(() => Admin.renderList(), 500);
-};
+    if(DOM.searchInput) {
+        DOM.searchInput.addEventListener('input', () => Data.filter());
+    }
+
+    // Exporta para usar no onclick do HTML
+    window.Admin = Admin;
+    window.Player = Player;
+    window.Navigation = Navigation;
+});

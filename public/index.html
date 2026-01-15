@@ -121,80 +121,82 @@
     </div>
 
     <div id="page-admin" class="page hidden">
-        <div class="container" style="margin-top: 80px;">
-            <div class="admin-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-                <h2 class="section-title" id="admin-page-title">⚙️ Painel Admin</h2>
-                <button class="btn-logout" id="btn-logout" style="background: #333; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Sair</button>
-            </div>
+    <div class="container" style="margin-top: 80px;">
+        <div class="admin-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <h2 class="section-title" id="admin-page-title">⚙️ Painel Admin</h2>
+            <button class="btn-logout" id="btn-logout" style="background: #333; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Sair</button>
+        </div>
+        
+        <div class="admin-form">
+            <h3 style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px;"><span style="font-size: 24px;">🎵</span> Adicionar Nova Música</h3>
             
-            <div class="admin-form">
-                <h3 style="margin-bottom: 24px; display: flex; align-items: center; gap: 12px;"><span style="font-size: 24px;">🎵</span> Adicionar Nova Música</h3>
-                <form id="admin-form">
-                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                        <div class="form-group">
-                            <label for="music-name"> <i class="fas fa-music"></i> Nome da Música </label>
-                            <input type="text" id="music-name" placeholder="Ex: Bohemian Rhapsody" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="artist-name"> <i class="fas fa-user"></i> Nome do Artista </label>
-                            <input type="text" id="artist-name" placeholder="Ex: Queen" required>
-                        </div>
+            <form id="admin-form">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div class="form-group">
+                        <label for="music-name"> <i class="fas fa-music"></i> Nome da Música </label>
+                        <input type="text" id="music-name" placeholder="Ex: Bohemian Rhapsody" required>
                     </div>
-
-                    <div class="upload-section">
-                        <label class="upload-label" style="display: block; margin-bottom: 10px;"> <i class="fas fa-headphones"></i> Arquivo de Áudio </label>
-                        <div class="upload-area" id="audio-upload-area">
-                            <input type="file" id="audio-file" accept="audio/*" style="display: none;">
-                            <div class="upload-placeholder" id="audio-placeholder">
-                                <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                                <p>Clique para selecionar o arquivo</p>
-                            </div>
-                            <div class="upload-preview hidden" id="audio-preview">
-                                <i class="fas fa-file-audio" style="font-size: 24px;"></i>
-                                <div class="upload-info">
-                                    <p id="audio-filename">arquivo.mp3</p>
-                                    <span id="audio-size" style="font-size: 12px; color: #aaa;">2.5 MB</span>
-                                </div>
-                                <button type="button" class="btn-remove" id="remove-audio"><i class="fas fa-times"></i></button>
-                            </div>
-                        </div>
-                        <input type="url" id="audio-url" placeholder="Ou cole a URL do áudio (Recomendado para evitar erros de limite)" style="margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: rgba(0,0,0,0.3); color: white;">
+                    <div class="form-group">
+                        <label for="artist-name"> <i class="fas fa-user"></i> Nome do Artista </label>
+                        <input type="text" id="artist-name" placeholder="Ex: Queen" required>
                     </div>
-
-                    <div class="upload-section">
-                        <label class="upload-label" style="display: block; margin-bottom: 10px;"> <i class="fas fa-image"></i> Capa da Música </label>
-                        <div class="upload-area" id="cover-upload-area">
-                            <input type="file" id="cover-file" accept="image/*" style="display: none;">
-                            <div class="upload-placeholder" id="cover-placeholder">
-                                <i class="fas fa-image" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                                <p>Clique para selecionar a imagem</p>
-                            </div>
-                            <div class="upload-preview hidden" id="cover-preview">
-                                <img id="cover-preview-img" src="" alt="Preview">
-                                <div class="upload-info">
-                                    <p id="cover-filename">imagem.jpg</p>
-                                </div>
-                                <button type="button" class="btn-remove" id="remove-cover"><i class="fas fa-times"></i></button>
-                            </div>
-                        </div>
-                        <input type="url" id="cover-url" placeholder="Ou cole a URL da imagem aqui" style="margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: rgba(0,0,0,0.3); color: white;">
-                    </div>
-
-                    <button type="submit" class="btn-submit"> <i class="fas fa-plus-circle"></i> Adicionar Música </button>
-                </form>
-            </div>
-
-            <div class="music-list" style="max-width: 800px; margin: 30px auto;">
-                <h3 style="margin-bottom: 20px;">Músicas Cadastradas</h3>
-                <div id="admin-music-list"></div>
-                <div id="empty-admin" class="empty-state hidden" style="text-align: center; color: #777;">
-                    <i class="fas fa-music"></i>
-                    <h3>Nenhuma música cadastrada</h3>
                 </div>
-            </div>
+
+                <div class="upload-section">
+                    <label class="upload-label" style="display: block; margin-bottom: 10px;"> <i class="fas fa-headphones"></i> Arquivo de Áudio </label>
+                    
+                    <div class="upload-area" id="audio-upload-area">
+                        <input type="file" id="audio-file" accept="audio/*" style="display: none;">
+                        <div class="upload-placeholder" id="audio-placeholder">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Clique para selecionar arquivo</p>
+                        </div>
+                        <div class="upload-preview hidden" id="audio-preview">
+                            <i class="fas fa-file-audio" style="font-size: 24px;"></i>
+                            <div class="upload-info">
+                                <p id="audio-filename">arquivo.mp3</p>
+                                <span id="audio-size" style="font-size: 12px; color: #aaa;">-- MB</span>
+                            </div>
+                            <button type="button" class="btn-remove" id="remove-audio"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+
+                    <input type="url" id="audio-url" placeholder="Ou cole a URL do áudio (MP3/Link Direto)" style="margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: rgba(0,0,0,0.3); color: white;">
+                </div>
+
+                <div class="upload-section">
+                    <label class="upload-label" style="display: block; margin-bottom: 10px;"> <i class="fas fa-image"></i> Capa da Música </label>
+                    
+                    <div class="upload-area" id="cover-upload-area">
+                        <input type="file" id="cover-file" accept="image/*" style="display: none;">
+                        <div class="upload-placeholder" id="cover-placeholder">
+                            <i class="fas fa-image" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                            <p>Clique para selecionar imagem</p>
+                        </div>
+                        <div class="upload-preview hidden" id="cover-preview">
+                            <img id="cover-preview-img" src="" alt="Preview">
+                            <div class="upload-info">
+                                <p id="cover-filename">imagem.jpg</p>
+                            </div>
+                            <button type="button" class="btn-remove" id="remove-cover"><i class="fas fa-times"></i></button>
+                        </div>
+                    </div>
+                    
+                    <input type="url" id="cover-url" placeholder="Ou cole a URL da imagem (JPG/PNG)" style="margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #444; background: rgba(0,0,0,0.3); color: white;">
+                </div>
+
+                <button type="submit" id="btn-save" class="btn-submit"> 
+                    <i class="fas fa-plus-circle"></i> Adicionar Música 
+                </button>
+            </form>
+        </div>
+
+        <div class="music-list" style="max-width: 800px; margin: 30px auto;">
+            <h3 style="margin-bottom: 20px;">Músicas Cadastradas</h3>
+            <div id="admin-music-list"></div>
         </div>
     </div>
-
+</div>
     <div class="player">
         <div class="player-content"><img src="" alt="Capa" class="player-cover" id="player-cover">
             <div class="player-info">

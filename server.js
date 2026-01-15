@@ -3,9 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const { Pool } = require('pg');
 
 const app = express();
@@ -13,10 +11,15 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'chave_mestra_secreta';
 
 // ============================================
-// CONFIGURAÇÕES INICIAIS
+// CONFIGURAÇÕES INICIAIS (CORREÇÃO DE LIMITE)
 // ============================================
-app.use(cors()); 
-app.use(express.json());
+app.use(cors());
+
+// AQUI ESTÁ A CORREÇÃO MÁGICA PARA O TRAVAMENTO
+// Permite JSONs gigantes (Base64 de áudio/imagem)
+app.use(express.json({ limit: '50mb' })); 
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -31,22 +34,6 @@ const pool = new Pool({
 pool.connect()
   .then(() => console.log('✅ Banco conectado com sucesso'))
   .catch(err => console.error('❌ Erro de conexão no banco:', err.message));
-
-// ============================================
-// CONFIGURAÇÃO DE UPLOAD
-// ============================================
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = 'uploads';
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, unique + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage });
 
 // ============================================
 // MIDDLEWARE DE AUTENTICAÇÃO
@@ -66,7 +53,7 @@ const autenticar = (req, res, next) => {
 // ROTAS DO SISTEMA
 // ============================================
 
-// ROTA DE LOGIN (Única e Corrigida)
+// ROTA DE LOGIN
 app.post('/login', async (req, res) => {
   try {
     const { usuario, senha } = req.body;
@@ -82,8 +69,7 @@ app.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
-    // CORREÇÃO: Usando 'senha_hash' para bater com seu banco (Image_5262a6.png)
-    // Isso evita o erro "Illegal arguments: string, undefined"
+    // Verifica a senha
     const ok = await bcrypt.compare(senha, user.senha_hash); 
     
     if (!ok) return res.status(401).json({ error: 'Senha incorreta' });
@@ -91,7 +77,7 @@ app.post('/login', async (req, res) => {
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '4h' });
     res.json({ token });
   } catch (err) {
-    console.error('Erro no Login:', err.message); // Log detalhado para ver no Render
+    console.error('Erro no Login:', err.message);
     res.status(500).json({ error: 'Erro interno no servidor' });
   }
 });
@@ -102,31 +88,40 @@ app.get('/musicas', async (req, res) => {
     const result = await pool.query('SELECT * FROM musicas ORDER BY criado_em DESC');
     res.json(result.rows);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao buscar músicas' });
   }
 });
 
-// Criar música (Protegido)
-app.post('/musicas', autenticar, upload.fields([{ name: 'audio' }, { name: 'capa' }]), async (req, res) => {
+// ========================================================
+// ROTA DE CRIAR MÚSICA (ATUALIZADA PARA BASE64/LINKS)
+// ========================================================
+// Removemos o 'multer' daqui porque o frontend agora manda JSON
+app.post('/musicas', autenticar, async (req, res) => {
   try {
-    if (!req.files.audio) return res.status(400).json({ error: 'Arquivo de áudio é obrigatório' });
+    // Recebe os dados direto do corpo da requisição (JSON)
+    // audio_url e capa_url podem ser Links OU Base64 gigante
+    const { nome, artista, audio_url, capa_url } = req.body;
 
-    const { nome, artista } = req.body;
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const audioUrl = `${baseUrl}/uploads/${req.files.audio[0].filename}`;
-    const capaUrl = req.files.capa 
-      ? `${baseUrl}/uploads/${req.files.capa[0].filename}` 
-      : 'https://placehold.co/300';
+    // Validação simples
+    if (!nome || !artista || !audio_url) {
+        return res.status(400).json({ error: 'Campos obrigatórios faltando (Nome, Artista ou Áudio)' });
+    }
+
+    // Define uma capa padrão se não vier nada
+    const capaFinal = capa_url || 'https://placehold.co/300';
 
     await pool.query(
       'INSERT INTO musicas (nome, artista, audio_url, capa_url) VALUES ($1, $2, $3, $4)',
-      [nome, artista, audioUrl, capaUrl]
+      [nome, artista, audio_url, capaFinal]
     );
 
+    console.log(`✅ Música "${nome}" salva com sucesso!`);
     res.json({ isOk: true });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao salvar música' });
+    console.error("Erro ao salvar música:", err.message);
+    res.status(500).json({ error: 'Erro ao salvar música no banco de dados' });
   }
 });
 
@@ -136,6 +131,7 @@ app.delete('/musicas/:id', autenticar, async (req, res) => {
     await pool.query('DELETE FROM musicas WHERE id = $1', [req.params.id]);
     res.json({ isOk: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao deletar' });
   }
 });
