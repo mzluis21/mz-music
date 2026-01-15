@@ -1,27 +1,20 @@
+// CONFIGURAÇÃO DA API
 const ApiDataSdk = {
-    baseUrl: window.location.hostname.includes('onrender.com') 
-             ? window.location.origin 
-             : 'https://mz-music-backend.onrender.com', 
+    baseUrl: 'https://mz-music-backend.onrender.com',
 
     formatUrl: (path) => {
         if (!path) return 'https://placehold.co/300';
         if (path.startsWith('http')) return path;
-        return `${ApiDataSdk.baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `${ApiDataSdk.baseUrl}${cleanPath}`;
     },
 
     getHeaders: () => ({
         'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
-    }),
-
-    init: async (handler) => {
-        try {
-            const res = await fetch(`${ApiDataSdk.baseUrl}/musicas`);
-            const data = await res.json();
-            handler.onDataChanged(data);
-        } catch (e) { console.error("Erro ao carregar músicas:", e); }
-    }
+    })
 };
 
+// ESTADO GLOBAL
 const appState = {
     playlist: [],
     filteredPlaylist: [],
@@ -29,77 +22,103 @@ const appState = {
     isPlaying: false
 };
 
+// MAPEAMENTO DO DOM (Ajustado para o seu HTML específico)
 const DOM = {
-    get audioPlayer() { return document.getElementById('audio-player'); },
-    get btnPlayPause() { return document.getElementById('btn-play-pause'); },
-    get btnPrev() { return document.getElementById('btn-prev'); },
-    get btnNext() { return document.getElementById('btn-next'); },
-    get progressBar() { return document.getElementById('progress-bar'); },
-    get progressFill() { return document.getElementById('progress-fill'); },
-    get currentTimeEl() { return document.getElementById('current-time'); },
-    get durationTimeEl() { return document.getElementById('duration-time'); },
-    get playerCover() { return document.getElementById('player-cover'); },
-    get playerTitle() { return document.getElementById('player-title'); },
-    get playerArtist() { return document.getElementById('player-artist'); },
-    get homeMusicGrid() { return document.getElementById('home-music-grid'); },
-    get musicasGrid() { return document.getElementById('musicas-grid'); },
-    get searchInput() { return document.getElementById('search-input'); },
-    get loginForm() { return document.getElementById('login-form'); },
-    get menuToggle() { return document.getElementById('menu-toggle'); },
-    get mobileMenu() { return document.getElementById('mobile-menu'); },
-    get closeMenu() { return document.getElementById('close-menu'); }
+    audioPlayer: document.getElementById('audio-player'),
+    btnPlayPause: document.getElementById('btn-play-pause'),
+    btnPrev: document.getElementById('btn-prev'),
+    btnNext: document.getElementById('btn-next'),
+    progressBar: document.getElementById('progress-bar'),
+    progressFill: document.getElementById('progress-fill'),
+    currentTimeEl: document.getElementById('current-time'),
+    durationTimeEl: document.getElementById('duration-time'),
+    playerCover: document.getElementById('player-cover'),
+    playerTitle: document.getElementById('player-title'),
+    playerArtist: document.getElementById('player-artist'),
+    homeMusicGrid: document.getElementById('home-music-grid'),
+    musicasGrid: document.getElementById('musicas-grid'),
+    searchInput: document.getElementById('search-input'),
+    loginForm: document.getElementById('login-form'),
+    adminForm: document.getElementById('admin-form'),
+    adminMusicList: document.getElementById('admin-music-list')
 };
 
+// LÓGICA DE INTERFACE
 const UI = {
     renderAll() {
         const list = (appState.filteredPlaylist.length > 0 || (DOM.searchInput && DOM.searchInput.value)) 
                      ? appState.filteredPlaylist 
                      : appState.playlist;
 
-        if(DOM.homeMusicGrid) DOM.homeMusicGrid.innerHTML = appState.playlist.slice(0, 6).map(m => UI.card(m)).join('');
-        if(DOM.musicasGrid) DOM.musicasGrid.innerHTML = list.map(m => UI.card(m)).join('');
-        
-        const songsEl = document.getElementById('total-songs');
-        const artistsEl = document.getElementById('total-artists');
-        if(songsEl) songsEl.textContent = appState.playlist.length;
-        if(artistsEl) artistsEl.textContent = new Set(appState.playlist.map(m => m.artista)).size;
+        if (DOM.homeMusicGrid) DOM.homeMusicGrid.innerHTML = appState.playlist.slice(0, 6).map(m => this.card(m)).join('');
+        if (DOM.musicasGrid) DOM.musicasGrid.innerHTML = list.map(m => this.card(m)).join('');
+        if (DOM.adminMusicList) this.renderAdminList();
+
+        document.getElementById('total-songs').textContent = appState.playlist.length;
+        document.getElementById('total-artists').textContent = new Set(appState.playlist.map(m => m.artista)).size;
     },
 
     card(m) {
         return `
-        <div class="cursor-pointer group" onclick="Player.playById('${m.id}')">
-            <div class="relative aspect-square overflow-hidden rounded-xl mb-2 bg-white/5 shadow-lg">
-                <img src="${ApiDataSdk.formatUrl(m.capa_url)}" class="w-full h-full object-cover group-hover:scale-110 transition duration-500">
-                <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                    <i class="fas fa-play text-white text-2xl"></i>
-                </div>
+        <div class="music-card-modern" onclick="Player.playById('${m.id}')">
+            <div class="card-image">
+                <img src="${ApiDataSdk.formatUrl(m.capa_url)}" alt="${m.nome}" onerror="this.src='https://placehold.co/300'">
+                <div class="card-overlay"><i class="fas fa-play"></i></div>
             </div>
-            <div class="font-bold text-sm truncate text-white">${m.nome}</div>
-            <div class="text-xs text-gray-500 truncate">${m.artista}</div>
+            <div class="card-info">
+                <div class="card-title">${m.nome}</div>
+                <div class="card-artist">${m.artista}</div>
+            </div>
         </div>`;
+    },
+
+    renderAdminList() {
+        DOM.adminMusicList.innerHTML = appState.playlist.map(m => `
+            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <img src="${ApiDataSdk.formatUrl(m.capa_url)}" style="width: 40px; height: 40px; border-radius: 4px; object-cover;">
+                    <div>
+                        <div style="font-weight: bold; font-size: 14px;">${m.nome}</div>
+                        <div style="font-size: 12px; color: #888;">${m.artista}</div>
+                    </div>
+                </div>
+                <button onclick="Admin.deleteMusic('${m.id}')" style="color: #ff4444; background: none; border: none; cursor: pointer;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
     }
 };
 
+// LÓGICA DO PLAYER (Correção do erro 404)
 const Player = {
-    playById(id) {
+    async playById(id) {
         const index = appState.playlist.findIndex(m => String(m.id) === String(id));
         if (index < 0) return;
+
         appState.currentMusicIndex = index;
         const m = appState.playlist[index];
+
+        const audioUrl = ApiDataSdk.formatUrl(m.audio_url);
+        DOM.audioPlayer.src = audioUrl;
         
-        if(DOM.audioPlayer) {
-            DOM.audioPlayer.src = ApiDataSdk.formatUrl(m.audio_url);
-            if(DOM.playerTitle) DOM.playerTitle.textContent = m.nome;
-            if(DOM.playerArtist) DOM.playerArtist.textContent = m.artista;
-            if(DOM.playerCover) DOM.playerCover.src = ApiDataSdk.formatUrl(m.capa_url);
-            DOM.audioPlayer.play();
+        DOM.playerTitle.textContent = m.nome;
+        DOM.playerArtist.textContent = m.artista;
+        DOM.playerCover.src = ApiDataSdk.formatUrl(m.capa_url);
+
+        try {
+            await DOM.audioPlayer.play();
             appState.isPlaying = true;
-            if(DOM.btnPlayPause) DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>';
+            DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>';
+            document.getElementById('visualizer').classList.add('active');
+        } catch (err) {
+            console.error("Erro ao tocar:", err);
+            alert("Erro 404: O arquivo de música não foi encontrado ou foi apagado do servidor.");
         }
     },
 
     toggle() {
-        if (!DOM.audioPlayer || !DOM.audioPlayer.src) return;
+        if (!DOM.audioPlayer.src) return;
         if (DOM.audioPlayer.paused) {
             DOM.audioPlayer.play();
             appState.isPlaying = true;
@@ -107,25 +126,123 @@ const Player = {
             DOM.audioPlayer.pause();
             appState.isPlaying = false;
         }
-        if(DOM.btnPlayPause) DOM.btnPlayPause.innerHTML = appState.isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
+        DOM.btnPlayPause.innerHTML = appState.isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
     }
 };
 
+// LÓGICA ADMINISTRATIVA (Upload)
+const Admin = {
+    async login(e) {
+        e.preventDefault();
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+
+        try {
+            const res = await fetch(`${ApiDataSdk.baseUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user, password: pass })
+            });
+            const data = await res.json();
+            if (data.token) {
+                localStorage.setItem('auth_token', data.token);
+                window.navigateTo('admin');
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        } catch (e) { alert("Erro ao logar"); }
+    },
+
+    async deleteMusic(id) {
+        if (!confirm("Excluir música?")) return;
+        try {
+            await fetch(`${ApiDataSdk.baseUrl}/musicas/${id}`, {
+                method: 'DELETE',
+                headers: ApiDataSdk.getHeaders()
+            });
+            initData();
+        } catch (e) { alert("Erro ao deletar"); }
+    }
+};
+
+// NAVEGAÇÃO
 window.navigateTo = (page) => {
     document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-    const target = document.getElementById(`page-${page}`);
-    if(target) target.classList.remove('hidden');
-    
-    if(DOM.mobileMenu) {
-        DOM.mobileMenu.classList.add('hidden');
-        DOM.mobileMenu.classList.remove('flex');
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById(`page-${page}`).classList.remove('hidden');
+    window.scrollTo(0,0);
 };
 
+// INICIALIZAÇÃO E EVENTOS
+async function initData() {
+    try {
+        const res = await fetch(`${ApiDataSdk.baseUrl}/musicas`);
+        appState.playlist = await res.json();
+        UI.renderAll();
+    } catch (e) { console.error("Erro ao carregar dados"); }
+}
+
 function setupEvents() {
-    if (DOM.menuToggle) DOM.menuToggle.onclick = () => { DOM.mobileMenu?.classList.remove('hidden'); DOM.mobileMenu?.classList.add('flex'); };
-    if (DOM.closeMenu) DOM.closeMenu.onclick = () => { DOM.mobileMenu?.classList.add('hidden'); DOM.mobileMenu?.classList.remove('flex'); };
+    // Login
+    if (DOM.loginForm) DOM.loginForm.onsubmit = Admin.login;
+
+    // Admin Upload (Mantendo seus campos)
+    if (DOM.adminForm) {
+        DOM.adminForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('nome', document.getElementById('music-name').value);
+            formData.append('artista', document.getElementById('artist-name').value);
+            
+            const audioFile = document.getElementById('audio-file').files[0];
+            const coverFile = document.getElementById('cover-file').files[0];
+            const audioUrl = document.getElementById('audio-url').value;
+            const coverUrl = document.getElementById('cover-url').value;
+
+            if (audioFile) formData.append('audio', audioFile);
+            else if (audioUrl) formData.append('audio_url', audioUrl);
+
+            if (coverFile) formData.append('capa', coverFile);
+            else if (coverUrl) formData.append('capa_url', coverUrl);
+
+            try {
+                const res = await fetch(`${ApiDataSdk.baseUrl}/musicas`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` },
+                    body: formData
+                });
+                if (res.ok) {
+                    DOM.adminForm.reset();
+                    alert("Música adicionada!");
+                    initData();
+                }
+            } catch (e) { alert("Erro ao enviar"); }
+        };
+    }
+
+    // Player
+    DOM.btnPlayPause.onclick = Player.toggle;
+    DOM.btnNext.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex + 1) % appState.playlist.length]?.id);
+    DOM.btnPrev.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex - 1 + appState.playlist.length) % appState.playlist.length]?.id);
+
+    DOM.audioPlayer.ontimeupdate = () => {
+        const pct = (DOM.audioPlayer.currentTime / DOM.audioPlayer.duration) * 100 || 0;
+        DOM.progressFill.style.width = pct + '%';
+        DOM.currentTimeEl.textContent = formatTime(DOM.audioPlayer.currentTime);
+        if (DOM.audioPlayer.duration) DOM.durationTimeEl.textContent = formatTime(DOM.audioPlayer.duration);
+    };
+
+    DOM.progressBar.onclick = (e) => {
+        const rect = DOM.progressBar.getBoundingClientRect();
+        DOM.audioPlayer.currentTime = ((e.clientX - rect.left) / rect.width) * DOM.audioPlayer.duration;
+    };
+
+    // Navegação Menu
+    document.querySelectorAll('[data-page]').forEach(el => {
+        el.onclick = (e) => {
+            e.preventDefault();
+            window.navigateTo(el.dataset.page);
+        };
+    });
 
     if(DOM.searchInput) {
         DOM.searchInput.oninput = (e) => {
@@ -136,36 +253,15 @@ function setupEvents() {
             UI.renderAll();
         };
     }
+    
+    document.getElementById('btn-logout').onclick = () => {
+        localStorage.removeItem('auth_token');
+        location.reload();
+    };
 
-    if(DOM.btnPlayPause) DOM.btnPlayPause.onclick = Player.toggle;
-    if(DOM.btnNext) DOM.btnNext.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex + 1) % appState.playlist.length]?.id);
-    if(DOM.btnPrev) DOM.btnPrev.onclick = () => Player.playById(appState.playlist[(appState.currentMusicIndex - 1 + appState.playlist.length) % appState.playlist.length]?.id);
-
-    if(DOM.audioPlayer) {
-        DOM.audioPlayer.ontimeupdate = () => {
-            const pct = (DOM.audioPlayer.currentTime / DOM.audioPlayer.duration) * 100 || 0;
-            if(DOM.progressFill) DOM.progressFill.style.width = pct + '%';
-            if(DOM.currentTimeEl) DOM.currentTimeEl.textContent = formatTime(DOM.audioPlayer.currentTime);
-            if(DOM.audioPlayer.duration && DOM.durationTimeEl) DOM.durationTimeEl.textContent = formatTime(DOM.audioPlayer.duration);
-        };
-    }
-
-    if(DOM.progressBar) {
-        DOM.progressBar.onclick = (e) => {
-            const rect = DOM.progressBar.getBoundingClientRect();
-            DOM.audioPlayer.currentTime = ((e.clientX - rect.left) / rect.width) * DOM.audioPlayer.duration;
-        };
-    }
-
-    document.querySelectorAll('[data-page]').forEach(a => {
-        a.onclick = (e) => {
-            e.preventDefault();
-            window.navigateTo(e.currentTarget.dataset.page);
-        };
-    });
-
-    const logoutBtn = document.getElementById('btn-logout');
-    if(logoutBtn) logoutBtn.onclick = () => { localStorage.removeItem('auth_token'); location.reload(); };
+    // Auxiliares de Upload (Preview)
+    document.getElementById('audio-upload-area').onclick = () => document.getElementById('audio-file').click();
+    document.getElementById('cover-upload-area').onclick = () => document.getElementById('cover-file').click();
 }
 
 function formatTime(s) {
@@ -183,5 +279,5 @@ window.playRandomMusic = () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEvents();
-    ApiDataSdk.init({ onDataChanged: (data) => { appState.playlist = data; UI.renderAll(); } });
+    initData();
 });
