@@ -33,7 +33,10 @@ const DOM = {
     playerTitle: document.getElementById('player-title'),
     playerArtist: document.getElementById('player-artist'),
     playerCover: document.getElementById('player-cover'),
-    volumeSlider: document.getElementById('volume-slider'), // Novo controle de volume
+    
+    // --- VOLUME (CUSTOMIZADO DIVS) ---
+    volumeBar: document.getElementById('volume-bar'),
+    volumeFill: document.getElementById('volume-fill'),
 
     // Listas
     homeGrid: document.getElementById('home-music-grid'),
@@ -57,17 +60,11 @@ const fileToBase64 = (file) => new Promise((resolve, reject) => {
     reader.onerror = error => reject(error);
 });
 
-// --- CORREÇÃO PRINCIPAL DO ERRO 414 ---
+// Formata URL para evitar erros de imagem
 function formatUrl(path) {
     if (!path) return 'https://via.placeholder.com/300?text=Sem+Capa';
-    
-    // Se for Base64 (data:image...) ou blob, retorna como está
     if (path.startsWith('data:') || path.startsWith('blob:')) return path;
-    
-    // Se for link externo (http...), retorna como está
     if (path.startsWith('http')) return path;
-    
-    // Se for caminho relativo, adiciona o backend
     return `${API_URL}${path.startsWith('/') ? path : '/' + path}`;
 }
 
@@ -79,7 +76,7 @@ function formatTime(s) {
 }
 
 /* =========================================
-   4. SISTEMA DE LOGIN (ATUALIZADO E SEGURO)
+   4. SISTEMA DE LOGIN
    ========================================= */
 const Auth = {
     init() {
@@ -167,25 +164,48 @@ const Navigation = {
 };
 
 /* =========================================
-   6. PLAYER DE MÚSICA (CORRIGIDO)
+   6. PLAYER DE MÚSICA (VOLUME CORRIGIDO)
    ========================================= */
 const Player = {
     init() {
         if(!DOM.audioPlayer) return;
 
-        // Controles Básicos
+        // --- LÓGICA DO VOLUME CUSTOMIZADO (DIVS) ---
+        if (DOM.volumeBar) {
+            // Volume inicial 100%
+            DOM.audioPlayer.volume = 1;
+            if(DOM.volumeFill) DOM.volumeFill.style.width = '100%';
+
+            // Evento de CLIQUE na barra de volume
+            DOM.volumeBar.addEventListener('click', (e) => {
+                // 1. Pega largura total da barra
+                const barWidth = DOM.volumeBar.clientWidth;
+                // 2. Pega onde clicou
+                const clickX = e.offsetX;
+                
+                // 3. Calcula porcentagem
+                let volumePercent = clickX / barWidth;
+
+                // 4. Limites de segurança
+                if (volumePercent > 1) volumePercent = 1;
+                if (volumePercent < 0) volumePercent = 0;
+
+                // 5. Aplica
+                DOM.audioPlayer.volume = volumePercent;
+
+                // 6. Atualiza visual
+                if(DOM.volumeFill) {
+                    DOM.volumeFill.style.width = `${volumePercent * 100}%`;
+                }
+            });
+        }
+
+        // --- Controles Padrão ---
         DOM.btnPlayPause.addEventListener('click', () => this.toggle());
         DOM.btnNext.addEventListener('click', () => this.next());
         DOM.btnPrev.addEventListener('click', () => this.prev());
 
-        // Controle de Volume (Novo)
-        if (DOM.volumeSlider) {
-            DOM.volumeSlider.addEventListener('input', (e) => {
-                DOM.audioPlayer.volume = e.target.value;
-            });
-        }
-
-        // Atualização de Tempo e Barra
+        // --- Barra de Progresso da Música ---
         DOM.audioPlayer.addEventListener('timeupdate', () => {
             const cur = DOM.audioPlayer.currentTime;
             const dur = DOM.audioPlayer.duration;
@@ -196,10 +216,8 @@ const Player = {
             }
         });
 
-        // Quando a música acaba, toca a próxima
         DOM.audioPlayer.addEventListener('ended', () => this.next());
         
-        // Clique na barra de progresso (Seek)
         DOM.progressBar.addEventListener('click', (e) => {
             const width = DOM.progressBar.clientWidth;
             const clickX = e.offsetX;
@@ -213,34 +231,26 @@ const Player = {
     load(index) {
         if(AppState.playlist.length === 0) return;
         
-        // Garante que o índice é válido
         if (index < 0) index = AppState.playlist.length - 1;
         if (index >= AppState.playlist.length) index = 0;
 
         AppState.currentMusicIndex = index;
         const music = AppState.playlist[index];
 
-        // Atualiza Interface
         DOM.playerTitle.textContent = music.nome;
         DOM.playerArtist.textContent = music.artista;
-        
-        // Usa a função corrigida para evitar erro 414
         DOM.playerCover.src = formatUrl(music.capa_url);
         DOM.audioPlayer.src = formatUrl(music.audio_url);
 
-        // Feedback Visual (Ativar classe active na lista se necessário)
         this.play();
-
-        // Rolar suavemente até o player (Opcional, bom para mobile)
-        // document.getElementById('player-container')?.scrollIntoView({ behavior: 'smooth' });
     },
 
     play() {
         DOM.audioPlayer.play().then(() => {
             AppState.isPlaying = true;
-            DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>'; // Ícone Pause
+            DOM.btnPlayPause.innerHTML = '<i class="fas fa-pause"></i>'; 
         }).catch(err => {
-            console.log("Autoplay bloqueado ou erro de carregamento:", err);
+            console.log("Aguardando interação...", err);
             AppState.isPlaying = false;
             DOM.btnPlayPause.innerHTML = '<i class="fas fa-play"></i>';
         });
@@ -252,7 +262,7 @@ const Player = {
         } else {
             DOM.audioPlayer.pause();
             AppState.isPlaying = false;
-            DOM.btnPlayPause.innerHTML = '<i class="fas fa-play"></i>'; // Ícone Play
+            DOM.btnPlayPause.innerHTML = '<i class="fas fa-play"></i>';
         }
     },
 
@@ -281,7 +291,6 @@ const Data = {
             this.render();
         } catch (e) {
             console.error("Erro ao carregar musicas", e);
-            // Fallback se a API falhar (Opcional)
             if(DOM.musicasGrid) DOM.musicasGrid.innerHTML = '<p class="text-white text-center">Erro ao carregar músicas.</p>';
         }
     },
@@ -291,7 +300,7 @@ const Data = {
             DOM.homeGrid.innerHTML = AppState.playlist.slice(0, 8).map((m) => this.card(m)).join('');
         }
         this.filter();
-        this.attachEvents(); // Importante: Reconectar eventos após renderizar
+        this.attachEvents();
     },
 
     filter() {
@@ -302,11 +311,10 @@ const Data = {
         );
         
         DOM.musicasGrid.innerHTML = filtered.map(m => this.card(m)).join('');
-        this.attachEvents(); // Reconecta eventos na lista filtrada
+        this.attachEvents();
     },
 
     card(m) {
-        // Usa formatUrl aqui também para evitar imagens quebradas na lista
         return `
         <div class="music-card-click music-card-modern bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition duration-300 relative group" data-id="${m.id}">
             <div class="relative w-full aspect-square">
@@ -324,7 +332,6 @@ const Data = {
 
     attachEvents() {
         document.querySelectorAll('.music-card-click').forEach(card => {
-            // Remove listener anterior para evitar duplicidade (boa prática simples)
             card.onclick = () => {
                 const id = card.getAttribute('data-id');
                 const idx = AppState.playlist.findIndex(m => String(m.id) === String(id));
@@ -335,7 +342,7 @@ const Data = {
 };
 
 /* =========================================
-   8. ADMIN (ATUALIZADO)
+   8. ADMIN (COM MENSAGEM DE TOTAL DE MÚSICAS)
    ========================================= */
 const Admin = {
     audioFile: null,
@@ -390,8 +397,8 @@ const Admin = {
             
             if (res.ok) {
                 alert("Música removida!");
-                await Data.load(); // Recarrega os dados
-                this.renderList(); // Atualiza a lista visual
+                await Data.load(); 
+                this.renderList(); 
             } else {
                 const data = await res.json();
                 alert("Erro ao deletar: " + (data.error || "Desconhecido"));
@@ -413,8 +420,7 @@ const Admin = {
             };
         }
 
-        // --- MANIPULAÇÃO DE ARQUIVOS (ÁUDIO E CAPA) ---
-        // Mantive a lógica original pois estava correta para inputs de arquivo
+        // Uploads
         this.setupFileInput('audio-upload-area', 'audio-file', 'audio-preview', 'audio-placeholder', 'audio-filename', 'audio-size', 'remove-audio', 'audio-url', 'audio');
         this.setupFileInput('cover-upload-area', 'cover-file', 'cover-preview', 'cover-placeholder', null, null, 'remove-cover', 'cover-url', 'cover');
     },
@@ -434,8 +440,8 @@ const Admin = {
         input.onchange = (e) => {
             const file = e.target.files[0];
             if (file) {
-                if (file.size > 5 * 1024 * 1024) {
-                    alert("⚠️ Arquivo muito grande! Isso pode causar lentidão.\nPrefira usar Links (URL) para arquivos acima de 5MB.");
+                if (file.size > 10 * 1024 * 1024) { 
+                    alert("⚠️ Arquivo grande! O envio pode demorar um pouco.");
                 }
 
                 if(type === 'audio') this.audioFile = file;
@@ -493,7 +499,7 @@ const Admin = {
 
         try {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> Processando...';
+            btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> Enviando... Aguarde...';
 
             let finalAudio = audioUrlVal;
             if (this.audioFile) finalAudio = await fileToBase64(this.audioFile);
@@ -517,13 +523,16 @@ const Admin = {
                 body: JSON.stringify(payload)
             });
 
+            const data = await res.json(); 
+
             if (res.ok) {
-                alert("✅ Música adicionada com sucesso!");
+                // --- MOSTRA O TOTAL DE MÚSICAS NO ALERT ---
+                alert(`✅ Sucesso! Música salva.\n📊 Total de músicas na plataforma: ${data.total_musicas}`);
+                
                 document.getElementById('admin-form').reset();
                 this.audioFile = null;
                 this.coverFile = null;
                 
-                // Reset Visual dos Uploads
                 document.getElementById('audio-preview').classList.add('hidden');
                 document.getElementById('audio-placeholder').classList.remove('hidden');
                 document.getElementById('cover-preview').classList.add('hidden');
@@ -532,15 +541,13 @@ const Admin = {
                 await Data.load();
                 this.renderList();
             } else {
-                const errorData = await res.json();
-                throw new Error(errorData.error || "Erro no servidor");
+                throw new Error(data.error || "Erro no servidor");
             }
 
         } catch (error) {
             console.error(error);
-            // Mensagem de erro amigável para payload muito grande
-            if (error.message.includes("413") || error.message.includes("Payload Too Large")) {
-                alert("ERRO: O arquivo é muito pesado para enviar direto.\nTente usar um link (URL) ou um arquivo menor.");
+            if (error.message.includes("413")) {
+                alert("ERRO: Arquivo muito pesado. Tente reduzir ou usar um Link.");
             } else {
                 alert("ERRO: " + error.message);
             }
