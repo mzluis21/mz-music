@@ -2,6 +2,7 @@
 DROP TABLE IF EXISTS musicas;
 DROP TABLE IF EXISTS usuarios;
 
+
 -- 2. Cria a tabela de usuários com o nome de coluna CORRETO para o seu código
 CREATE TABLE usuarios (
   id SERIAL PRIMARY KEY,

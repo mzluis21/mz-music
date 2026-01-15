@@ -8,135 +8,124 @@ const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'chave_mestra_secreta';
+const JWT_SECRET = process.env.JWT_SECRET || 'segredo_super_secreto';
 
-// ============================================
-// CONFIGURAÇÕES INICIAIS (CORREÇÃO DE LIMITE)
-// ============================================
+// Configurações
 app.use(cors());
-
-// AQUI ESTÁ A CORREÇÃO MÁGICA PARA O TRAVAMENTO
-// Permite JSONs gigantes (Base64 de áudio/imagem)
-app.use(express.json({ limit: '50mb' })); 
+app.use(express.json({ limit: '50mb' })); // Permite arquivos grandes
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ============================================
-// CONEXÃO COM O BANCO (RENDER)
-// ============================================
+// Conexão Banco de Dados
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
 pool.connect()
-  .then(() => console.log('✅ Banco conectado com sucesso'))
-  .catch(err => console.error('❌ Erro de conexão no banco:', err.message));
+  .then(() => console.log('✅ Banco conectado'))
+  .catch(err => console.error('❌ Erro banco:', err.message));
 
-// ============================================
-// MIDDLEWARE DE AUTENTICAÇÃO
-// ============================================
+// --- MIDDLEWARE DE SEGURANÇA (O Porteiro) ---
 const autenticar = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Faça login primeiro' });
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1]; // Pega o token depois do "Bearer"
+
+  if (!token) return res.status(401).json({ error: 'Acesso negado. Faça login.' });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Token inválido ou expirado' });
+    if (err) return res.status(403).json({ error: 'Sessão inválida/expirada' });
     req.user = user;
     next();
   });
 };
 
-// ============================================
-// ROTAS DO SISTEMA
-// ============================================
+// --- ROTAS ---
 
-// ROTA DE LOGIN
+// 1. ROTA ESPECIAL PARA CRIAR SEU USUÁRIO (Rode uma vez e apague depois se quiser)
+app.get('/setup-admin', async (req, res) => {
+    try {
+        // Cria a tabela se não existir
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id SERIAL PRIMARY KEY,
+                login VARCHAR(50) UNIQUE NOT NULL,
+                senha_hash TEXT NOT NULL
+            );
+        `);
+        
+        // Cria o usuário admin (Senha: mazzoni2026)
+        const senhaForte = await bcrypt.hash('mazzoni2026', 10);
+        
+        // Tenta inserir (se já existir, ignora)
+        await pool.query(`
+            INSERT INTO usuarios (login, senha_hash) 
+            VALUES ('admin', $1) 
+            ON CONFLICT (login) DO NOTHING
+        `, [senhaForte]);
+
+        res.send("✅ Usuário 'admin' com senha 'mazzoni2026' criado/verificado com sucesso!");
+    } catch (e) {
+        res.status(500).send("Erro no setup: " + e.message);
+    }
+});
+
+// 2. LOGIN (Gera o Token)
 app.post('/login', async (req, res) => {
   try {
     const { usuario, senha } = req.body;
+    const result = await pool.query('SELECT * FROM usuarios WHERE login = $1', [usuario]);
 
-    const result = await pool.query(
-      'SELECT * FROM usuarios WHERE login = $1',
-      [usuario]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Usuário não encontrado' });
-    }
+    if (result.rows.length === 0) return res.status(401).json({ error: 'Usuário não existe' });
 
     const user = result.rows[0];
-
-    // Verifica a senha
-    const ok = await bcrypt.compare(senha, user.senha_hash); 
-    
-    if (!ok) return res.status(401).json({ error: 'Senha incorreta' });
-
-    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '4h' });
-    res.json({ token });
+    if (await bcrypt.compare(senha, user.senha_hash)) {
+        // Senha correta: Gerar Token
+        const token = jwt.sign({ id: user.id, login: user.login }, JWT_SECRET, { expiresIn: '8h' });
+        res.json({ token });
+    } else {
+        res.status(401).json({ error: 'Senha incorreta' });
+    }
   } catch (err) {
-    console.error('Erro no Login:', err.message);
-    res.status(500).json({ error: 'Erro interno no servidor' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Listar músicas (Público)
+// 3. LISTAR (Público)
 app.get('/musicas', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM musicas ORDER BY criado_em DESC');
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erro ao buscar músicas' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ========================================================
-// ROTA DE CRIAR MÚSICA (ATUALIZADA PARA BASE64/LINKS)
-// ========================================================
-// Removemos o 'multer' daqui porque o frontend agora manda JSON
+// 4. SALVAR (Protegido 🔒)
 app.post('/musicas', autenticar, async (req, res) => {
   try {
-    // Recebe os dados direto do corpo da requisição (JSON)
-    // audio_url e capa_url podem ser Links OU Base64 gigante
     const { nome, artista, audio_url, capa_url } = req.body;
+    if (!nome || !artista || !audio_url) return res.status(400).json({ error: 'Dados incompletos' });
 
-    // Validação simples
-    if (!nome || !artista || !audio_url) {
-        return res.status(400).json({ error: 'Campos obrigatórios faltando (Nome, Artista ou Áudio)' });
-    }
-
-    // Define uma capa padrão se não vier nada
-    const capaFinal = capa_url || 'https://placehold.co/300';
-
+    const capa = capa_url || 'https://placehold.co/300';
     await pool.query(
       'INSERT INTO musicas (nome, artista, audio_url, capa_url) VALUES ($1, $2, $3, $4)',
-      [nome, artista, audio_url, capaFinal]
+      [nome, artista, audio_url, capa]
     );
-
-    console.log(`✅ Música "${nome}" salva com sucesso!`);
-    res.json({ isOk: true });
-
+    res.json({ success: true });
   } catch (err) {
-    console.error("Erro ao salvar música:", err.message);
-    res.status(500).json({ error: 'Erro ao salvar música no banco de dados' });
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar' });
   }
 });
 
-// Deletar música (Protegido)
+// 5. DELETAR (Protegido 🔒)
 app.delete('/musicas/:id', autenticar, async (req, res) => {
   try {
     await pool.query('DELETE FROM musicas WHERE id = $1', [req.params.id]);
-    res.json({ isOk: true });
+    res.json({ success: true });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Erro ao deletar' });
   }
 });
 
-// Inicialização
-app.listen(PORT, () => {
-  console.log(`🚀 Mazzoni Music rodando na porta ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor seguro rodando na porta ${PORT}`));

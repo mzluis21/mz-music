@@ -70,21 +70,45 @@ function formatTime(s) {
 }
 
 /* =========================================
-   4. SISTEMA DE LOGIN
+   4. SISTEMA DE LOGIN (ATUALIZADO E SEGURO)
    ========================================= */
 const Auth = {
     init() {
         if (DOM.loginForm) {
-            DOM.loginForm.addEventListener('submit', (e) => {
+            DOM.loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const u = document.getElementById('username').value;
                 const p = document.getElementById('password').value;
+                const btn = DOM.loginForm.querySelector('button');
 
-                if (u === 'admin' && p === 'mazzoni2026') {
-                    localStorage.setItem('mz_auth', 'true');
-                    Navigation.goTo('admin');
-                } else {
-                    alert("Senha incorreta!");
+                try {
+                    // Feedback visual
+                    btn.disabled = true;
+                    btn.textContent = "Verificando...";
+
+                    // 1. REQUISIÇÃO REAL AO SERVIDOR
+                    const res = await fetch(`${API_URL}/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ usuario: u, senha: p })
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        // 2. SALVAR O TOKEN SEGURO
+                        localStorage.setItem('mz_token', data.token);
+                        alert("Login realizado com sucesso!");
+                        Navigation.goTo('admin');
+                    } else {
+                        alert(data.error || "Usuário ou senha incorretos");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert("Erro de conexão com o servidor.");
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "Entrar";
                 }
             });
         }
@@ -92,12 +116,14 @@ const Auth = {
         const btnLogout = document.getElementById('btn-logout');
         if(btnLogout) {
             btnLogout.addEventListener('click', () => {
-                localStorage.removeItem('mz_auth');
+                // REMOVE O TOKEN AO SAIR
+                localStorage.removeItem('mz_token');
                 Navigation.goTo('home');
             });
         }
     },
-    isLogged: () => localStorage.getItem('mz_auth') === 'true'
+    // Verifica se existe um token salvo
+    isLogged: () => !!localStorage.getItem('mz_token')
 };
 
 /* =========================================
@@ -122,7 +148,11 @@ const Navigation = {
     },
 
     goTo(pageId) {
-        if (pageId === 'admin' && !Auth.isLogged()) pageId = 'login';
+        // Proteção de Rota
+        if (pageId === 'admin' && !Auth.isLogged()) {
+            alert("Faça login primeiro.");
+            pageId = 'login';
+        }
         
         DOM.pages.forEach(p => p.classList.add('hidden'));
         const target = document.getElementById(`page-${pageId}`);
@@ -216,7 +246,7 @@ const Data = {
         try {
             const res = await fetch(`${API_URL}/musicas`);
             const data = await res.json();
-            AppState.playlist = data.reverse();
+            AppState.playlist = data.reverse(); // Mais recentes primeiro
             this.render();
         } catch (e) {
             console.error("Erro ao carregar musicas", e);
@@ -270,7 +300,7 @@ const Data = {
 
 
 /* =========================================
-   8. ADMIN (CORRIGIDO: COM LOGS DE DEPURAÇÃO)
+   8. ADMIN (ATUALIZADO COM TOKEN)
    ========================================= */
 const Admin = {
     audioFile: null,
@@ -306,20 +336,37 @@ const Admin = {
         `).join('');
     },
 
+    // DELETE SEGURO 🔒
     async deleteMusic(id) {
         if (!confirm("Tem certeza que deseja apagar esta música?")) return;
+        
+        const token = localStorage.getItem('mz_token');
+        if(!token) {
+            alert("Sessão expirada. Faça login novamente.");
+            Navigation.goTo('login');
+            return;
+        }
+
         try {
             document.body.style.cursor = 'wait';
-            const res = await fetch(`${API_URL}/musicas/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/musicas/${id}`, { 
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}` // ENVIA O TOKEN
+                }
+            });
+            
             if (res.ok) {
                 alert("Música removida!");
                 await Data.load();
                 this.renderList();
             } else {
-                alert("Erro ao deletar.");
+                const data = await res.json();
+                alert("Erro ao deletar: " + (data.error || "Desconhecido"));
             }
         } catch (error) {
             console.error(error);
+            alert("Erro de conexão.");
         } finally {
             document.body.style.cursor = 'default';
         }
@@ -328,11 +375,9 @@ const Admin = {
     setupClicks() {
         const adminForm = document.getElementById('admin-form');
         
-        // CORREÇÃO: Força o bloqueio do reload da página
         if (adminForm) {
             adminForm.onsubmit = (e) => {
                 e.preventDefault(); 
-                console.log("Formulário submetido. Iniciando save()...");
                 this.save();
             };
         }
@@ -350,9 +395,8 @@ const Admin = {
             audioInput.onchange = (e) => {
                 const file = e.target.files[0];
                 if (file) {
-                    // LIMITE DE SEGURANÇA: 5MB
                     if (file.size > 5 * 1024 * 1024) {
-                        alert("⚠️ Arquivo muito grande (Acima de 5MB)!\nIsso pode travar o navegador.\nRecomendamos usar a opção de URL (Link) em vez de upload.");
+                        alert("⚠️ Arquivo muito grande (Acima de 5MB)!\nIsso pode travar o navegador.\nRecomendamos usar a opção de URL (Link).");
                     }
                     this.audioFile = file;
                     document.getElementById('audio-filename').textContent = file.name;
@@ -409,10 +453,17 @@ const Admin = {
         }
     },
 
+    // SAVE SEGURO 🔒
     async save() {
-        console.log("Iniciando função save...");
         const btn = document.getElementById('btn-save');
         if(!btn) return;
+        
+        const token = localStorage.getItem('mz_token');
+        if(!token) {
+            alert("Sessão expirada. Faça login novamente.");
+            Navigation.goTo('login');
+            return;
+        }
 
         const originalText = btn.innerHTML;
         const name = document.getElementById('music-name').value;
@@ -428,35 +479,26 @@ const Admin = {
         try {
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-cog fa-spin"></i> Processando...';
-            console.log("Botão desativado. Processando arquivos...");
 
-            // 1. Resolve Áudio
+            // 1. Conversão (Arquivos -> Base64)
             let finalAudio = '';
             if (this.audioFile) {
-                console.log("Convertendo áudio para Base64...");
-                // Se a função fileToBase64 não existir, vai dar erro no console aqui
                 finalAudio = await fileToBase64(this.audioFile);
-                console.log("Áudio convertido. Tamanho da string: " + finalAudio.length);
             } else {
-                console.log("Usando URL de áudio.");
                 finalAudio = audioUrlVal;
             }
 
-            // 2. Resolve Capa
             let finalCover = '';
             if (this.coverFile) {
-                console.log("Convertendo capa...");
                 finalCover = await fileToBase64(this.coverFile);
             } else {
                 finalCover = coverUrlVal;
             }
 
-            // 3. Envio
+            // 2. Envio Seguro (Com Token)
             btn.innerHTML = '<i class="fas fa-cloud-upload-alt fa-spin"></i> Enviando...';
-            console.log("Enviando requisição fetch para API...");
 
             const payload = {
-                id: Date.now().toString(),
                 nome: name,
                 artista: artist,
                 audio_url: finalAudio,
@@ -465,11 +507,12 @@ const Admin = {
 
             const res = await fetch(`${API_URL}/musicas`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // ENVIA O TOKEN
+                },
                 body: JSON.stringify(payload)
             });
-
-            console.log("Resposta do servidor recebida:", res.status);
 
             if (res.ok) {
                 alert("✅ Sucesso! Música adicionada.");
@@ -485,20 +528,20 @@ const Admin = {
                 
                 Data.load();
             } else {
-                if (res.status === 413) throw new Error("Arquivo muito pesado para o servidor. Use a URL do áudio.");
-                const txt = await res.text();
-                throw new Error(`Erro API: ${res.status} - ${txt}`);
+                const errorData = await res.json();
+                throw new Error(errorData.error || "Erro no servidor");
             }
 
         } catch (error) {
-            console.error("ERRO NO SAVE:", error);
-            alert("ERRO: " + error.message + "\n(Verifique o Console F12 para detalhes)");
+            console.error(error);
+            alert("ERRO: " + error.message);
         } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
     }
 };
+
 /* =========================================
    9. INICIALIZAÇÃO
    ========================================= */
